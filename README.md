@@ -1,2 +1,0 @@
-# mischiefulvirus.github.io
-mischiefulvirus
