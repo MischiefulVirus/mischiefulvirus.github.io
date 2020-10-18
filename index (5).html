@@ -1,44 +1,83 @@
 <!DOCTYPE html>
 <html>
- <style>
- #mediatext {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 70px;
-  text-align: center;
-  color: white;
- }
-  .medias {
- 	display: flex;
-	flex-direction: row;
-	justify-content: space-around;
-	align-items: center;
-	font-size: 24px;
-}
-  body {
-  background-color: #002b36;
-}
-  
- </style>
-   <head>
-      <title>modabl.io</title>
-      		<script src="https://kit.fontawesome.com/42364daefc.js" crossorigin="anonymous"></script>
-		<link href="https://fonts.googleapis.com/css?family=Permanent+Marker|Raleway&display=swap" rel="stylesheet"> 
-   </head>
-   <body>
-      <p id="mediatext">modabl.io</p><br>
-      <a class="medias" href="https://twitter.com/Modables1">
-         <img alt="Modables Twitter" src="https://cdn2.iconfinder.com/data/icons/minimalism/512/twitter.png"
-         width=70" height="70">
-         
-         <a class="medias" href="https://www.youtube.com/channel/UCMY4giDwPLnCy-stqvu5UTA">
-         <img alt="Modables YT" src="https://www.freepnglogos.com/uploads/youtube-logo-hd-8.png"
-         width=70" height="70">
-         <a class="medias" href="https://tumblr.com/blog/modables">
-         <img alt="modables tumblr" src="https://assets.tumblr.com/images/logo_page/1x/t-black.png?_v=6cd7fb4b68e5e395b4ae20f748214a96"
-         width=70" height="70">
-         <a class="medias" href="https://discord.gg/Z77WDF7">
-         <img alt="Modables Discord" src="https://www.freepnglogos.com/uploads/discord-logo-png/discord-icon-flat-style-available-svg-png-eps-10.png"
-         width=70" height="70">
-      </a>
-   </body>
+	<head>
+		<title>bar and line | amCharts</title>
+		<meta name="description" content="chart created using amCharts live editor" />
+		
+		<!-- amCharts javascript sources -->
+		<script type="text/javascript" src="https://www.amcharts.com/lib/3/amcharts.js"></script>
+		<script type="text/javascript" src="https://www.amcharts.com/lib/3/serial.js"></script>
+		<script type="text/javascript" src="https://www.amcharts.com/lib/3/themes/patterns.js"></script>
+		
+
+		<!-- amCharts javascript code -->
+		<script type="text/javascript">
+			AmCharts.makeChart("chartdiv",
+				{
+					"type": "serial",
+					"categoryField": "category",
+					"rotate": true,
+					"autoMarginOffset": 40,
+					"marginRight": 60,
+					"marginTop": 60,
+					"startDuration": 1,
+					"fontSize": 13,
+					"theme": "patterns",
+					"categoryAxis": {
+						"gridPosition": "start"
+					},
+					"trendLines": [],
+					"graphs": [
+						{
+							"balloonText": "[[title]] of [[category]]:[[value]]",
+							"fillAlphas": 1,
+							"id": "AmGraph-1",
+							"labelText": "",
+							"title": "graph 1",
+							"type": "column",
+							"valueField": "column-1"
+						},
+						{
+							"balloonText": "[[title]] of [[category]]:[[value]]",
+							"bullet": "round",
+							"id": "AmGraph-2",
+							"labelText": "",
+							"lineThickness": 2,
+							"title": "graph 2",
+							"valueField": "column-2"
+						},
+						{
+							"id": "AmGraph-3",
+							"title": "graph 3"
+						}
+					],
+					"guides": [],
+					"valueAxes": [
+						{
+							"id": "ValueAxis-1",
+							"title": ""
+						}
+					],
+					"allLabels": [],
+					"balloon": {},
+					"titles": [],
+					"dataProvider": [
+						{
+							"category": "brazil in 2021",
+							"column-1": "295991909",
+							"column-2": 8
+						},
+						{
+							"category": "india in 2021",
+							"column-1": "999999410",
+							"column-2": 5
+						}
+					]
+				}
+			);
+		</script>
+	</head>
+	<body>
+		<div id="chartdiv" style="width: 100%; height: 400px; background-color: #FFFFFF;" ></div>
+	</body>
 </html>
