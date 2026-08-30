@@ -13,12 +13,21 @@
     <meta content="⚠︎⚠︎⚠︎⚠︎" name=">⩊<" />
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
 
-    <link href="favicon.ico" rel="icon" type="image/x-icon" />
+    <link
+      href="favicon.ico"
+      rel="icon"
+      type="image/x-icon"
+    />
 
-    <link href="./style.css" rel="stylesheet" />
-
+    <link
+      href="./style.css"
+      rel="stylesheet"
+    />
 
     <!-- =============================================== -->
     <!-- MUSIC PLAYER CSS -->
@@ -43,7 +52,6 @@
 
 
       .music-player-header {
-
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -53,151 +61,110 @@
         border-bottom: 1px solid #ff0000;
 
         font-size: 14px;
-
       }
 
 
       .music-player-main {
-
         padding: 15px;
-
       }
 
 
       .music-info {
-
         margin-bottom: 15px;
-
       }
 
 
       .current-title {
-
         font-size: 20px;
-
         color: #ff0000;
-
       }
 
 
       .current-number {
-
         margin-top: 3px;
-
         font-size: 12px;
-
         color: #ff0000;
-
       }
 
 
       .music-controls {
-
         display: flex;
-
         justify-content: center;
-
         gap: 5px;
 
         margin-bottom: 15px;
-
       }
 
 
       .music-controls button {
-
         width: 45px;
         height: 30px;
 
         background: #000;
-
         color: #ff0000;
 
         border: 1px solid #ff0000;
 
         font-family: "Times New Roman", Times, serif;
-
         font-size: 14px;
 
         cursor: pointer;
-
       }
 
 
       .music-controls button:hover {
-
         background: #ff0000;
-
         color: #000;
-
       }
 
 
       .music-progress {
-
         display: flex;
-
         align-items: center;
-
         gap: 8px;
 
         color: #ff0000;
-
         font-size: 12px;
-
       }
 
 
       .progress-bar {
-
         flex: 1;
 
         accent-color: #ff0000;
 
         cursor: pointer;
-
       }
 
 
       .music-volume {
-
         display: flex;
-
         align-items: center;
-
         gap: 8px;
 
         margin-top: 10px;
 
         color: #ff0000;
-
         font-size: 12px;
-
       }
 
 
       .volume-bar {
-
         width: 100px;
 
         accent-color: #ff0000;
 
         cursor: pointer;
-
       }
 
 
       .music-playlist {
-
         border-top: 1px solid #ff0000;
-
       }
 
 
       .music-track {
-
         display: grid;
-
         grid-template-columns: 40px 1fr;
 
         width: 100%;
@@ -205,44 +172,35 @@
         padding: 8px 10px;
 
         background: #000;
-
         color: #ff0000;
 
         border: 0;
-
         border-bottom: 1px solid #330000;
 
         text-align: left;
 
         font-family: "Times New Roman", Times, serif;
-
         font-size: 14px;
 
         cursor: pointer;
 
+        box-sizing: border-box;
       }
 
 
       .music-track:hover {
-
         background: #ff0000;
-
         color: #000;
-
       }
 
 
       .music-track.active {
-
         background: #ff0000;
-
         color: #000;
-
       }
 
 
       .album-title {
-
         color: #ff0000;
 
         font-family: "Times New Roman", Times, serif;
@@ -250,9 +208,7 @@
         font-size: 24px;
 
         margin-top: 30px;
-
         margin-bottom: 10px;
-
       }
 
     </style>
@@ -272,12 +228,14 @@
 
   <body>
 
-
     <!-- =============================================== -->
     <!-- SKIP LINK -->
     <!-- =============================================== -->
 
-    <a href="#content" id="skip-to-content-link">
+    <a
+      href="#content"
+      id="skip-to-content-link"
+    >
       Skip to content
     </a>
 
@@ -399,7 +357,6 @@
 
             <div class="music-controls">
 
-
               <button
                 class="prev-button"
                 type="button">
@@ -427,13 +384,11 @@
                 ↓
               </button>
 
-
             </div>
 
 
 
             <div class="music-progress">
-
 
               <span class="current-time">
                 0:00
@@ -452,7 +407,6 @@
               <span class="duration">
                 0:00
               </span>
-
 
             </div>
 
@@ -552,11 +506,11 @@
             <div class="music-info">
 
               <div class="current-title">
-                moloch
+                ermm hi hello
               </div>
 
               <div class="current-number">
-                01 / 02
+                01 / 09
               </div>
 
             </div>
@@ -654,6 +608,10 @@
 
 
 
+          <!-- =============================================== -->
+          <!-- ALBUM 02 PLAYLIST -->
+          <!-- =============================================== -->
+
           <div class="music-playlist">
 
 
@@ -686,6 +644,7 @@
 
             </button>
 
+
             <button
               class="music-track"
               data-title="peep midi.dubroom.org"
@@ -699,6 +658,7 @@
               </span>
 
             </button>
+
 
             <button
               class="music-track"
@@ -715,10 +675,6 @@
             </button>
 
 
-          </div>
-
-        </div>
-
             <button
               class="music-track"
               data-title="dreamstate"
@@ -734,11 +690,7 @@
             </button>
 
 
-          </div>
-
-        </div>
-
-    <button
+            <button
               class="music-track"
               data-title="Brokmerbrief"
               data-url="https://file.garden/adwxaa1jkQwZa76a/incrmnknn.mp3"
@@ -751,7 +703,9 @@
               </span>
 
             </button>
-        <button
+
+
+            <button
               class="music-track"
               data-title="nmhilai"
               data-url="https://file.garden/adwxaa1jkQwZa76a/nmhilai%2Ciygfinp!.mp3"
@@ -765,13 +719,14 @@
 
             </button>
 
-    <button
+
+            <button
               class="music-track"
               data-title="Kinda Sounds Like Chlorine"
               data-url="https://file.garden/adwxaa1jkQwZa76a/oameiz.mp3"
               type="button">
 
-              <span>07</span>
+              <span>08</span>
 
               <span>
                 Kinda Sounds Like Chlorine
@@ -779,22 +734,27 @@
 
             </button>
 
-        <button
+
+            <button
               class="music-track"
               data-title="silent heaven (???)"
               data-url="https://file.garden/adwxaa1jkQwZa76a/silent%20heaven.mp3"
               type="button">
 
-              <span>08</span>
+              <span>09</span>
 
               <span>
                 silent heaven (???)
               </span>
 
             </button>
-    
 
-    
+
+          </div>
+
+        </div>
+
+
 
         <!-- =============================================== -->
         <!-- WIDGET -->
@@ -827,7 +787,6 @@
     <!-- =============================================== -->
 
     <script>
-
 
       /*
        * INITIALIZE EVERY PLAYER
@@ -904,7 +863,6 @@
 
           function loadTrack(index) {
 
-
             currentTrack = index;
 
 
@@ -967,7 +925,6 @@
             "click",
             () => {
 
-
               if (audio.paused) {
 
                 audio.play();
@@ -993,7 +950,6 @@
             "click",
             () => {
 
-
               if (currentTrack > 0) {
 
                 loadTrack(
@@ -1017,24 +973,20 @@
             "click",
             () => {
 
-
               if (
                 currentTrack <
                 trackButtons.length - 1
               ) {
 
-
                 loadTrack(
                   currentTrack + 1
                 );
-
 
                 audio.play();
 
               }
 
               else {
-
 
                 loadTrack(0);
 
@@ -1054,11 +1006,9 @@
           trackButtons.forEach(
             (button, index) => {
 
-
               button.addEventListener(
                 "click",
                 () => {
-
 
                   loadTrack(index);
 
@@ -1080,10 +1030,8 @@
             "play",
             () => {
 
-
               playButton.textContent =
                 "Ⅱ";
-
 
               status.textContent =
                 "playing";
@@ -1096,10 +1044,8 @@
             "pause",
             () => {
 
-
               playButton.textContent =
                 "▶";
-
 
               status.textContent =
                 "paused";
@@ -1116,7 +1062,6 @@
           audio.addEventListener(
             "timeupdate",
             () => {
-
 
               if (!audio.duration) {
                 return;
@@ -1148,7 +1093,6 @@
             "loadedmetadata",
             () => {
 
-
               duration.textContent =
                 formatTime(
                   audio.duration
@@ -1166,7 +1110,6 @@
           progressBar.addEventListener(
             "input",
             () => {
-
 
               if (!audio.duration) {
                 return;
@@ -1191,17 +1134,14 @@
             "ended",
             () => {
 
-
               if (
                 currentTrack <
                 trackButtons.length - 1
               ) {
 
-
                 loadTrack(
                   currentTrack + 1
                 );
-
 
                 audio.play();
 
@@ -1209,10 +1149,8 @@
 
               else {
 
-
                 playButton.textContent =
                   "▶";
-
 
                 status.textContent =
                   "finished";
@@ -1232,7 +1170,6 @@
             "input",
             () => {
 
-
               audio.volume =
                 volumeBar.value;
 
@@ -1251,7 +1188,6 @@
           downloadButton.addEventListener(
             "click",
             () => {
-
 
               const track =
                 trackButtons[currentTrack];
@@ -1292,7 +1228,6 @@
            */
 
           function formatTime(seconds) {
-
 
             if (
               !Number.isFinite(seconds)
