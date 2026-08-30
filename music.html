@@ -1,36 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="https://u.widget.st/ar.js">console.log("ar.js loaded");
-  console.log(customElements.get("ws-widget"));</script>
-    <!-- Change your site title: (It is shown in the tab) -->
+
+    <script src="https://u.widget.st/ar.js">
+      console.log("ar.js loaded");
+      console.log(customElements.get("ws-widget"));
+    </script>
+
     <title></title>
 
-    <!-- Change your site description: (It is shown in Google results) -->
     <meta content="⚠︎⚠︎⚠︎⚠︎" name=">⩊<" />
 
-    <!-- Setting character encoding and viewport size. Do not remove. -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- FavIcon (small image in tab), change to any image you want: -->
     <link href="favicon.ico" rel="icon" type="image/x-icon" />
 
-    <!-- CSS: -->
-    <!-- You will have to change this to "../style.css" if this HTML file is in a subfolder, to "../../style.css" if this HTML file is in 2 subfolders, etc. -->
     <link href="./style.css" rel="stylesheet" />
-    
+
+    <!-- MUSIC PLAYER CSS -->
+    <style>
+
+      .music-player {
+        width: 100%;
+        max-width: 650px;
+        margin: 25px auto;
+
+        background: #000;
+        color: #ff0000;
+
+        border: 1px solid #ff0000;
+
+        font-family: "Times New Roman", Times, serif;
+        box-sizing: border-box;
+      }
+
+      .music-player-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        padding: 7px 10px;
+
+        border-bottom: 1px solid #ff0000;
+
+        font-size: 14px;
+      }
+
+      .music-player-main {
+        padding: 15px;
+      }
+
+      .music-info {
+        margin-bottom: 15px;
+      }
+
+      #current-title {
+        font-size: 20px;
+        color: #ff0000;
+      }
+
+      #current-number {
+        margin-top: 3px;
+        font-size: 12px;
+        color: #ff0000;
+      }
+
+      .music-controls {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+
+        margin-bottom: 15px;
+      }
+
+      .music-controls button {
+        width: 45px;
+        height: 30px;
+
+        background: #000;
+        color: #ff0000;
+
+        border: 1px solid #ff0000;
+
+        font-family: "Times New Roman", Times, serif;
+        font-size: 14px;
+
+        cursor: pointer;
+      }
+
+      .music-controls button:hover {
+        background: #ff0000;
+        color: #000;
+      }
+
+      .music-progress {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        color: #ff0000;
+        font-size: 12px;
+      }
+
+      #progress-bar {
+        flex: 1;
+
+        accent-color: #ff0000;
+        cursor: pointer;
+      }
+
+      .music-volume {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        margin-top: 10px;
+
+        color: #ff0000;
+        font-size: 12px;
+      }
+
+      #volume-bar {
+        width: 100px;
+
+        accent-color: #ff0000;
+        cursor: pointer;
+      }
+
+      .music-playlist {
+        border-top: 1px solid #ff0000;
+      }
+
+      .music-track {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+
+        width: 100%;
+        padding: 8px 10px;
+
+        background: #000;
+        color: #ff0000;
+
+        border: 0;
+        border-bottom: 1px solid #330000;
+
+        text-align: left;
+
+        font-family: "Times New Roman", Times, serif;
+        font-size: 14px;
+
+        cursor: pointer;
+      }
+
+      .music-track:hover {
+        background: #ff0000;
+        color: #000;
+      }
+
+      .music-track.active {
+        background: #ff0000;
+        color: #000;
+      }
+
+    </style>
 
     <script>
-      console.log("%cCHROMIST", "font-size: 50pt; color: #ff0000; background: #000000");
+      console.log(
+        "%cCHROMIST",
+        "font-size: 50pt; color: #ff0000; background: #000000"
+      );
     </script>
+
   </head>
+
   <body>
-    <!-- The next line is a skip-to-content link for keyboard users. Do not remove it! -->
-    <a href="#content" id="skip-to-content-link">Skip to content</a>
+
+    <a href="#content" id="skip-to-content-link">
+      Skip to content
+    </a>
 
     <div class="layout">
-  
+
       <!-- =============================================== -->
       <!-- HEADER -->
       <!-- =============================================== -->
@@ -38,53 +189,181 @@
       <header>
 
         <div class="header-content">
-	        <div class="header-title"></div>
-	        
-	        <!-- NAVIGATION -->
-	        <nav>
-	          <ul>
-	            <li><a href="/">/</a></li>
+
+          <div class="header-title"></div>
+
+          <nav>
+            <ul>
+              <li><a href="/">/</a></li>
               <li><a href="chat.html">/chat</a></li>
-	          </ul>
-	        </nav>
-        	
+            </ul>
+          </nav>
+
         </div>
+
       </header>
 
-	  
-        
+
       <!-- =============================================== -->
       <!-- LEFT SIDEBAR -->
       <!-- =============================================== -->
 
       <aside class="left-sidebar">
-	  
-        
+
         <div class="sidebar-section">
-          <div class="sidebar-title">⫘⫘⫘⫘⫘⫘</div>
+
+          <div class="sidebar-title">
+            ⫘⫘⫘⫘⫘⫘
+          </div>
+
           <img alt="" src="jji.gif" />
+
         </div>
-        
-    
+
       </aside>
-	
-      
-  
-      <main id="content"> <!-- Do NOT remove the ID here -->
-
-        
-
-        <!-- =============================================== -->
-        <!-- MAIN CONTENT -->
-        <!-- =============================================== -->
 
 
-        <!-- SCM Music Player https://scmplayer.net -->
-<script type="text/javascript" src="https://scmplayer.net/script.scm.js" 
-data-config="{'skin':'https://static.tumblr.com/su8juwr/oHan2m2jg/miniskintra.css','volume':50,'shuffle':false,'repeat':1,'showplaylist':false,'playlist':[{'title':'moloch','url':'https://file.garden/adwxaa1jkQwZa76a/abbbbbbbbbbbb.mp3'},{'title':'bro What am i listening to','url':'https://file.garden/adwxaa1jkQwZa76a/bro%20What%20am%20i%20listening%20to.mp3'}]}" ></script>
-<!-- SCM Music Player script end -->
+      <!-- =============================================== -->
+      <!-- MAIN CONTENT -->
+      <!-- =============================================== -->
 
-		    <ws-widget type="hc" iid="9378"></ws-widget>
+      <main id="content">
+
+        <!-- MUSIC PLAYER -->
+
+        <div class="music-player">
+
+          <div class="music-player-header">
+
+            <span>♫ MUSIC</span>
+
+            <span id="music-status">
+              nothing playing
+            </span>
+
+          </div>
+
+
+          <div class="music-player-main">
+
+            <div class="music-info">
+
+              <div id="current-title">
+                moloch
+              </div>
+
+              <div id="current-number">
+                01 / 02
+              </div>
+
+            </div>
+
+
+            <audio
+              id="audio-player"
+              preload="metadata">
+            </audio>
+
+
+            <div class="music-controls">
+
+              <button
+                id="prev-button"
+                type="button">
+                |◀
+              </button>
+
+              <button
+                id="play-button"
+                type="button">
+                ▶
+              </button>
+
+              <button
+                id="next-button"
+                type="button">
+                ▶|
+              </button>
+
+            </div>
+
+
+            <div class="music-progress">
+
+              <span id="current-time">
+                0:00
+              </span>
+
+              <input
+                id="progress-bar"
+                type="range"
+                min="0"
+                max="100"
+                value="0">
+
+              <span id="duration">
+                0:00
+              </span>
+
+            </div>
+
+
+            <div class="music-volume">
+
+              <span>
+                VOL
+              </span>
+
+              <input
+                id="volume-bar"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.5">
+
+            </div>
+
+          </div>
+
+
+          <!-- PLAYLIST -->
+
+          <div class="music-playlist">
+
+            <button
+              class="music-track active"
+              data-track="0"
+              type="button">
+
+              <span>01</span>
+              <span>moloch</span>
+
+            </button>
+
+
+            <button
+              class="music-track"
+              data-track="1"
+              type="button">
+
+              <span>02</span>
+              <span>bro What am i listening to</span>
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- WIDGET -->
+
+        <ws-widget
+          type="hc"
+          iid="9378">
+        </ws-widget>
+
       </main>
 
 
@@ -93,13 +372,343 @@ data-config="{'skin':'https://static.tumblr.com/su8juwr/oHan2m2jg/miniskintra.cs
       <!-- =============================================== -->
 
       <footer>
-            
       </footer>
-  
-    <!-- Closing .layout: -->
+
     </div>
 
 
-    <!-- Add any additional Javascript code (<script></script>) here. -->
+    <!-- =============================================== -->
+    <!-- MUSIC PLAYER JAVASCRIPT -->
+    <!-- =============================================== -->
+
+    <script>
+
+      const tracks = [
+
+        {
+          title: "moloch",
+          url: "https://file.garden/adwxaa1jkQwZa76a/abbbbbbbbbbbb.mp3"
+        },
+
+        {
+          title: "bro What am i listening to",
+          url: "https://file.garden/adwxaa1jkQwZa76a/bro%20What%20am%20i%20listening%20to.mp3"
+        }
+
+      ];
+
+
+      const audio =
+        document.getElementById("audio-player");
+
+      const playButton =
+        document.getElementById("play-button");
+
+      const prevButton =
+        document.getElementById("prev-button");
+
+      const nextButton =
+        document.getElementById("next-button");
+
+      const progressBar =
+        document.getElementById("progress-bar");
+
+      const volumeBar =
+        document.getElementById("volume-bar");
+
+      const currentTitle =
+        document.getElementById("current-title");
+
+      const currentNumber =
+        document.getElementById("current-number");
+
+      const currentTime =
+        document.getElementById("current-time");
+
+      const duration =
+        document.getElementById("duration");
+
+      const status =
+        document.getElementById("music-status");
+
+      const trackButtons =
+        document.querySelectorAll(".music-track");
+
+
+      let currentTrack = 0;
+
+
+      // LOAD TRACK
+
+      function loadTrack(index) {
+
+        currentTrack = index;
+
+        audio.src =
+          tracks[index].url;
+
+        currentTitle.textContent =
+          tracks[index].title;
+
+        currentNumber.textContent =
+          String(index + 1).padStart(2, "0")
+          + " / "
+          + String(tracks.length).padStart(2, "0");
+
+
+        trackButtons.forEach(button => {
+
+          button.classList.remove("active");
+
+        });
+
+
+        trackButtons[index]
+          .classList.add("active");
+
+
+        status.textContent = "ready";
+
+        progressBar.value = 0;
+
+        currentTime.textContent = "0:00";
+
+        duration.textContent = "0:00";
+
+      }
+
+
+      // PLAY / PAUSE
+
+      playButton.addEventListener(
+        "click",
+        () => {
+
+          if (audio.paused) {
+
+            audio.play();
+
+          } else {
+
+            audio.pause();
+
+          }
+
+        }
+      );
+
+
+      // PREVIOUS
+
+      prevButton.addEventListener(
+        "click",
+        () => {
+
+          if (currentTrack > 0) {
+
+            loadTrack(currentTrack - 1);
+
+            audio.play();
+
+          }
+
+        }
+      );
+
+
+      // NEXT
+
+      nextButton.addEventListener(
+        "click",
+        () => {
+
+          if (
+            currentTrack <
+            tracks.length - 1
+          ) {
+
+            loadTrack(currentTrack + 1);
+
+            audio.play();
+
+          } else {
+
+            loadTrack(0);
+
+            audio.play();
+
+          }
+
+        }
+      );
+
+
+      // PLAYLIST
+
+      trackButtons.forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const index =
+              Number(button.dataset.track);
+
+            loadTrack(index);
+
+            audio.play();
+
+          }
+        );
+
+      });
+
+
+      // PLAY STATE
+
+      audio.addEventListener(
+        "play",
+        () => {
+
+          playButton.textContent = "Ⅱ";
+
+          status.textContent = "playing";
+
+        }
+      );
+
+
+      audio.addEventListener(
+        "pause",
+        () => {
+
+          playButton.textContent = "▶";
+
+          status.textContent = "paused";
+
+        }
+      );
+
+
+      // PROGRESS
+
+      audio.addEventListener(
+        "timeupdate",
+        () => {
+
+          if (!audio.duration) return;
+
+          progressBar.value =
+            (audio.currentTime /
+            audio.duration) * 100;
+
+          currentTime.textContent =
+            formatTime(
+              audio.currentTime
+            );
+
+        }
+      );
+
+
+      audio.addEventListener(
+        "loadedmetadata",
+        () => {
+
+          duration.textContent =
+            formatTime(audio.duration);
+
+        }
+      );
+
+
+      progressBar.addEventListener(
+        "input",
+        () => {
+
+          if (!audio.duration) return;
+
+          audio.currentTime =
+            (progressBar.value / 100)
+            * audio.duration;
+
+        }
+      );
+
+
+      // AUTO NEXT
+
+      audio.addEventListener(
+        "ended",
+        () => {
+
+          if (
+            currentTrack <
+            tracks.length - 1
+          ) {
+
+            loadTrack(currentTrack + 1);
+
+            audio.play();
+
+          } else {
+
+            playButton.textContent = "▶";
+
+            status.textContent = "finished";
+
+          }
+
+        }
+      );
+
+
+      // VOLUME
+
+      volumeBar.addEventListener(
+        "input",
+        () => {
+
+          audio.volume =
+            volumeBar.value;
+
+        }
+      );
+
+
+      audio.volume = 0.5;
+
+
+      // TIME FORMAT
+
+      function formatTime(seconds) {
+
+        if (!Number.isFinite(seconds)) {
+
+          return "0:00";
+
+        }
+
+        const minutes =
+          Math.floor(seconds / 60);
+
+        const secondsPart =
+          Math.floor(seconds % 60);
+
+        return (
+          minutes +
+          ":" +
+          String(secondsPart).padStart(2, "0")
+        );
+
+      }
+
+
+      // INITIALIZE
+
+      loadTrack(0);
+
+    </script>
+
   </body>
 </html>
