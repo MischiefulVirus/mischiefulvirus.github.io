@@ -70,10 +70,8 @@
         display: flex;
         justify-content: center;
         gap: 5px;
-
-        margin-bottom: 15px;
       }
-
+  
       .music-controls button {
         width: 45px;
         height: 30px;
@@ -265,27 +263,33 @@
             </audio>
 
 
-            <div class="music-controls">
+<div class="music-controls">
 
-              <button
-                id="prev-button"
-                type="button">
-                |◀
-              </button>
+  <button
+    id="prev-button"
+    type="button">
+    |◀
+  </button>
 
-              <button
-                id="play-button"
-                type="button">
-                ▶
-              </button>
+  <button
+    id="play-button"
+    type="button">
+    ▶
+  </button>
 
-              <button
-                id="next-button"
-                type="button">
-                ▶|
-              </button>
+  <button
+    id="next-button"
+    type="button">
+    ▶|
+  </button>
 
-            </div>
+  <button
+    id="download-button"
+    type="button">
+    ↓
+  </button>
+
+</div>
 
 
             <div class="music-progress">
@@ -400,6 +404,9 @@
 
       const audio =
         document.getElementById("audio-player");
+      
+      const downloadButton =
+        document.getElementById("download-button");
 
       const playButton =
         document.getElementById("play-button");
@@ -476,6 +483,27 @@
         duration.textContent = "0:00";
 
       }
+      downloadButton.addEventListener(
+  "click",
+  () => {
+
+    const link =
+      document.createElement("a");
+
+    link.href =
+      tracks[currentTrack].url;
+
+    link.download =
+      tracks[currentTrack].title + ".mp3";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+  }
+);
 
 
       // PLAY / PAUSE
