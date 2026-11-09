@@ -108,6 +108,9 @@ serve(async (req) => {
         return reply({ error: "admin login is not configured" }, 503, headers);
       }
       const password = typeof body.password === "string" ? body.password : "";
+      if (password && password.length <= 256 && await passwordMatches(password)) {
+        return reply({ success: true, token: await createAdminToken(), expires_in: 3600 }, 200, headers);
+      }
       const loginIp = req.headers.get("cf-connecting-ip") ||
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
       const loginIpHash = await sha256(ADMIN_SESSION_SECRET + ":admin-login:" + loginIp);
@@ -120,10 +123,7 @@ serve(async (req) => {
       if (!(loginAllowed === true || (Array.isArray(loginAllowed) && loginAllowed[0] === true))) {
         return reply({ error: "too many login attempts; wait 15 minutes and try again" }, 429, headers);
       }
-      if (!password || password.length > 256 || !(await passwordMatches(password))) {
-        return reply({ error: "incorrect password" }, 401, headers);
-      }
-      return reply({ success: true, token: await createAdminToken(), expires_in: 3600 }, 200, headers);
+      return reply({ error: "incorrect password" }, 401, headers);
     }
 
     if (body.action === "delete") {
