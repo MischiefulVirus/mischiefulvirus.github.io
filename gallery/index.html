@@ -35,9 +35,9 @@
       <section id="gallery-section">
         <h1>gallery</h1>
         <form id="gallery-upload-form">
-          <label for="gallery-file">submit an image (jpeg / png / webp, max 5 MB)</label>
+          <label for="gallery-file">submit an image (jpeg / png / webp / gif, max 5 MB)</label>
           <div class="gallery-upload-controls">
-            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp">
+            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
             <button id="gallery-submit" type="submit">upload</button>
           </div>
           <div class="gallery-upload-controls">
@@ -176,8 +176,8 @@
     }
 
     async function uploadFile(file) {
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        throw new Error("only jpeg, png, and webp images are accepted.");
+      if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+        throw new Error("only jpeg, png, webp, and gif images are accepted.");
       }
       if (file.size > 5 * 1024 * 1024) {
         throw new Error("file is larger than 5 MB.");
@@ -287,12 +287,12 @@
         if (!response.ok) throw new Error("image source returned HTTP " + response.status);
         const blob = await response.blob();
         const type = blob.type.split(";")[0].toLowerCase();
-        if (!["image/jpeg", "image/png", "image/webp"].includes(type)) {
-          throw new Error("URL must return a JPEG, PNG, or WebP image.");
+        if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(type)) {
+          throw new Error("URL must return a JPEG, PNG, WebP, or GIF image.");
         }
         if (blob.size > 5 * 1024 * 1024) throw new Error("image is larger than 5 MB.");
         const lastPart = decodeURIComponent(parsed.pathname.split("/").pop() || "imported-image");
-        const safeName = /\.(jpe?g|png|webp)$/i.test(lastPart) ? lastPart : "imported-image." + (type === "image/jpeg" ? "jpg" : type.split("/")[1]);
+        const safeName = /\.(jpe?g|png|webp|gif)$/i.test(lastPart) ? lastPart : "imported-image." + (type === "image/jpeg" ? "jpg" : type === "image/gif" ? "gif" : type.split("/")[1]);
         const file = new File([blob], safeName, { type });
         await uploadFile(file);
         urlInput.value = "";
