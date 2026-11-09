@@ -181,17 +181,21 @@ serve(async (req) => {
 
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = req.headers.get("cf-connecting-ip") || forwarded || "unknown";
-  const ipHash = await sha256(RATE_LIMIT_PEPPER + ":" + ip);
   const authHeaders = restHeaders();
+  const adminToken = req.headers.get("x-gallery-admin-token") || "";
+  const isAdmin = Boolean(ADMIN_SESSION_SECRET) && await validAdminToken(adminToken);
 
-  const claim = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_gallery_upload_slot", {
-    method: "POST", headers: authHeaders, body: JSON.stringify({ p_ip_hash: ipHash })
-  });
-  if (!claim.ok) return reply({ error: "rate limit service unavailable" }, 503, headers);
-  const claimData = await claim.json().catch(() => false);
-  const allowed = claimData === true || (Array.isArray(claimData) && claimData[0] === true) ||
-    (typeof claimData === "object" && claimData !== null && (claimData.allowed === true || claimData.claim_gallery_upload_slot === true));
-  if (!allowed) return reply({ error: "one upload per minute; please wait before trying again" }, 429, headers);
+  if (!isAdmin) {
+    const ipHash = await sha256(RATE_LIMIT_PEPPER + ":" + ip);
+    const claim = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_gallery_upload_slot", {
+      method: "POST", headers: authHeaders, body: JSON.stringify({ p_ip_hash: ipHash })
+    });
+    if (!claim.ok) return reply({ error: "rate limit service unavailable" }, 503, headers);
+    const claimData = await claim.json().catch(() => false);
+    const allowed = claimData === true || (Array.isArray(claimData) && claimData[0] === true) ||
+      (typeof claimData === "object" && claimData !== null && (claimData.allowed === true || claimData.claim_gallery_upload_slot === true));
+    if (!allowed) return reply({ error: "one upload per minute; please wait before trying again" }, 429, headers);
+  }
 
   const originalName = cleanName(file.name || "image");
   const extension = mime === "image/jpeg" ? "jpg" : mime.split("/")[1];
