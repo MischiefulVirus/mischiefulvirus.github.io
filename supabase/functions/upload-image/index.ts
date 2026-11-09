@@ -28,6 +28,10 @@ function validImage(bytes: Uint8Array, mime: string) {
   if (mime === "image/jpeg") return starts(0xff,0xd8,0xff);
   if (mime === "image/png") return starts(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
   if (mime === "image/webp") return bytes.length >= 12 && String.fromCharCode(...bytes.slice(0,4)) === "RIFF" && String.fromCharCode(...bytes.slice(8,12)) === "WEBP";
+  if (mime === "image/gif") {
+    const signature = String.fromCharCode(...bytes.slice(0,6));
+    return bytes.length >= 6 && (signature === "GIF87a" || signature === "GIF89a");
+  }
   return false;
 }
 function cleanName(name: string) {
@@ -177,7 +181,7 @@ serve(async (req) => {
   if (file.size < 1 || file.size > MAX_BYTES) return reply({ error: "image must be between 1 byte and 5 MB" }, 413, headers);
   const mime = file.type.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!validImage(bytes, mime)) return reply({ error: "file must be a valid JPEG, PNG, or WebP image" }, 415, headers);
+  if (!validImage(bytes, mime)) return reply({ error: "file must be a valid JPEG, PNG, WebP, or GIF image" }, 415, headers);
 
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = req.headers.get("cf-connecting-ip") || forwarded || "unknown";
