@@ -41,7 +41,7 @@ async function sha256(value: string) {
 function b64url(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return btoa(binary).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
 }
 function fromB64url(value: string) {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -108,6 +108,18 @@ serve(async (req) => {
         return reply({ error: "admin login is not configured" }, 503, headers);
       }
       const password = typeof body.password === "string" ? body.password : "";
+      const loginIp = req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const loginIpHash = await sha256(ADMIN_SESSION_SECRET + ":admin-login:" + loginIp);
+      const loginLimit = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_gallery_admin_login_slot", {
+        method: "POST", headers: restHeaders(),
+        body: JSON.stringify({ p_ip_hash: loginIpHash })
+      });
+      if (!loginLimit.ok) return reply({ error: "admin login protection is unavailable" }, 503, headers);
+      const loginAllowed = await loginLimit.json().catch(() => false);
+      if (!(loginAllowed === true || (Array.isArray(loginAllowed) && loginAllowed[0] === true))) {
+        return reply({ error: "too many login attempts; wait 15 minutes and try again" }, 429, headers);
+      }
       if (!password || password.length > 256 || !(await passwordMatches(password))) {
         return reply({ error: "incorrect password" }, 401, headers);
       }
