@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- gallery integration build 2026-11-08c -->
+<!-- gallery integration build 2026-11-08d -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -37,8 +37,12 @@
         <form id="gallery-upload-form">
           <label for="gallery-file">submit an image (jpeg / png / webp, max 5 MB)</label>
           <div class="gallery-upload-controls">
-            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required>
+            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp">
             <button id="gallery-submit" type="submit">upload</button>
+          </div>
+          <div class="gallery-upload-controls">
+            <input id="gallery-image-url" type="url" inputmode="url" placeholder="https://… image URL" aria-label="Image URL">
+            <button id="gallery-import" type="button">import URL</button>
           </div>
           <p id="gallery-status" role="status" aria-live="polite"></p>
         </form>
@@ -112,39 +116,102 @@
       }
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-
+    async function uploadFile(file) {
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        status.textContent = "only jpeg, png, and webp images are accepted.";
-        return;
+        throw new Error("only jpeg, png, and webp images are accepted.");
       }
       if (file.size > 5 * 1024 * 1024) {
-        status.textContent = "file is larger than 5 MB.";
-        return;
+        throw new Error("file is larger than 5 MB.");
       }
-
       submitButton.disabled = true;
-      status.textContent = "uploading...";
+      importButton.disabled = true;
+      status.textContent = "uploading…";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
       try {
         const body = new FormData();
-        body.append("file", file, file.name);
+        body.append("file", file, file.name || "image");
         const response = await fetch(UPLOAD_URL, {
           method: "POST",
           headers: { apikey: SUPABASE_KEY },
-          body
+          body,
+          signal: controller.signal
         });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || "upload failed.");
+        if (!response.ok) {
+          const detail = result.error || result.message || ("server returned HTTP " + response.status);
+          throw new Error(detail);
+        }
         status.textContent = "uploaded.";
         form.reset();
         await loadGallery();
       } catch (error) {
-        status.textContent = error instanceof Error ? error.message : "upload failed.";
+        if (error && error.name === "AbortError") {
+          throw new Error("upload timed out after 45 seconds. the server may be unavailable; try again.");
+        }
+        throw error;
       } finally {
+        clearTimeout(timeout);
         submitButton.disabled = false;
+        importButton.disabled = false;
+      }
+    }
+
+    const importButton = document.getElementById("gallery-import");
+    const urlInput = document.getElementById("gallery-image-url");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        status.textContent = "choose a file or import an image URL first.";
+        return;
+      }
+      try {
+        await uploadFile(file);
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "upload failed.";
+      }
+    });
+
+    importButton.addEventListener("click", async () => {
+      const rawUrl = urlInput.value.trim();
+      if (!rawUrl) {
+        status.textContent = "enter an image URL first.";
+        return;
+      }
+      let parsed;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        status.textContent = "that URL is not valid.";
+        return;
+      }
+      if (!["https:", "http:"].includes(parsed.protocol)) {
+        status.textContent = "only http and https image URLs are supported.";
+        return;
+      }
+      importButton.disabled = true;
+      status.textContent = "fetching image from URL…";
+      try {
+        const response = await fetch(parsed.href, { mode: "cors" });
+        if (!response.ok) throw new Error("image source returned HTTP " + response.status);
+        const blob = await response.blob();
+        const type = blob.type.split(";")[0].toLowerCase();
+        if (!["image/jpeg", "image/png", "image/webp"].includes(type)) {
+          throw new Error("URL must return a JPEG, PNG, or WebP image.");
+        }
+        if (blob.size > 5 * 1024 * 1024) throw new Error("image is larger than 5 MB.");
+        const lastPart = decodeURIComponent(parsed.pathname.split("/").pop() || "imported-image");
+        const safeName = /\.(jpe?g|png|webp)$/i.test(lastPart) ? lastPart : "imported-image." + (type === "image/jpeg" ? "jpg" : type.split("/")[1]);
+        const file = new File([blob], safeName, { type });
+        await uploadFile(file);
+        urlInput.value = "";
+      } catch (error) {
+        status.textContent = error instanceof Error
+          ? (error.message.includes("Failed to fetch") ? "could not fetch that URL (the image host may block browser imports with CORS)." : error.message)
+          : "could not import image URL.";
+        importButton.disabled = false;
       }
     });
 
