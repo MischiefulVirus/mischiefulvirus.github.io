@@ -146,7 +146,10 @@ serve(async (req) => {
 
       const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
       const removedObject = await fetch(SUPABASE_URL + "/storage/v1/object/gallery/" + encodedPath, {
-        method: "DELETE", headers: authHeaders
+        method: "DELETE", headers: {
+          "apikey": SERVICE_KEY,
+          "Authorization": "Bearer " + SERVICE_KEY
+        }
       });
       if (!removedObject.ok) {
         const detail = await removedObject.text().catch(() => "");
