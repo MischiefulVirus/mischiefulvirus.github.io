@@ -583,3 +583,88 @@ main h6 {
     font-size: 1rem;
   }
 }
+
+
+/* PUBLIC IMAGE GALLERY */
+#gallery-section {
+  margin-top: 2.5em;
+  padding-top: 1em;
+  border-top: 1px solid #400000;
+}
+#gallery-upload-form {
+  margin: 1em 0 1.5em;
+  padding: 12px;
+  border: 1px solid #400000;
+}
+#gallery-upload-form label {
+  display: block;
+  margin-bottom: 0.6em;
+}
+.gallery-upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#gallery-file {
+  max-width: 100%;
+  color: var(--text-color);
+  font: inherit;
+  font-size: 0.75em;
+}
+#gallery-submit {
+  border: 1px solid #ff0000;
+  border-radius: 0;
+  padding: 5px 12px;
+  color: #ff0000;
+  background: #000;
+  font: inherit;
+  cursor: pointer;
+}
+#gallery-submit:hover,
+#gallery-submit:focus {
+  color: #000;
+  background: #ff0000;
+}
+#gallery-submit:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+#gallery-status {
+  min-height: 1.2em;
+  margin: 0.7em 0 0;
+  font-size: 0.8em;
+}
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.gallery-grid figure {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #400000;
+  padding: 5px;
+}
+.gallery-grid figure a {
+  display: block;
+}
+.gallery-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: #050000;
+}
+.gallery-grid figcaption {
+  overflow-wrap: anywhere;
+  padding-top: 4px;
+  font-size: 0.65em;
+  line-height: 1.2;
+}
+@media (max-width: 800px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
