@@ -15,7 +15,7 @@ function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-gallery-admin-token",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
