@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- gallery integration build 2026-11-08d -->
+<!-- gallery integration build 2026-11-08e -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -46,6 +46,16 @@
           </div>
           <p id="gallery-status" role="status" aria-live="polite"></p>
         </form>
+        <section id="gallery-admin" aria-label="gallery administration">
+          <button id="gallery-admin-login-button" type="button">admin login</button>
+          <button id="gallery-admin-logout-button" type="button" hidden>log out</button>
+          <form id="gallery-admin-login-form" hidden>
+            <label for="gallery-admin-password">admin password</label>
+            <input id="gallery-admin-password" type="password" autocomplete="current-password" required>
+            <button type="submit">log in</button>
+          </form>
+          <p id="gallery-admin-status" role="status" aria-live="polite"></p>
+        </section>
         <div id="gallery-grid" class="gallery-grid" aria-live="polite">
           <p>loading images...</p>
         </div>
@@ -68,6 +78,29 @@
     const fileInput = document.getElementById("gallery-file");
     const submitButton = document.getElementById("gallery-submit");
     const status = document.getElementById("gallery-status");
+    const adminLoginButton = document.getElementById("gallery-admin-login-button");
+    const adminLogoutButton = document.getElementById("gallery-admin-logout-button");
+    const adminLoginForm = document.getElementById("gallery-admin-login-form");
+    const adminPassword = document.getElementById("gallery-admin-password");
+    const adminStatus = document.getElementById("gallery-admin-status");
+    let adminToken = sessionStorage.getItem("galleryAdminToken") || "";
+
+    function updateAdminControls() {
+      adminLoginButton.hidden = Boolean(adminToken);
+      adminLogoutButton.hidden = !adminToken;
+      if (!adminToken) adminLoginForm.hidden = true;
+    }
+
+    async function adminRequest(payload) {
+      const response = await fetch(UPLOAD_URL, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "admin request failed (HTTP " + response.status + ")");
+      return result;
+    }
 
     function imageUrl(path) {
       return SUPABASE_URL + "/storage/v1/object/public/gallery/" +
@@ -112,6 +145,32 @@
 
         link.append(image);
         figure.append(link, caption);
+        if (adminToken) {
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.textContent = "delete";
+          deleteButton.addEventListener("click", async () => {
+            if (!window.confirm("delete this image from the gallery?")) return;
+            deleteButton.disabled = true;
+            adminStatus.textContent = "deleting image…";
+            try {
+              await adminRequest({ action: "delete", id: item.id, token: adminToken });
+              adminStatus.textContent = "image deleted.";
+              await loadGallery();
+            } catch (error) {
+              adminStatus.textContent = error instanceof Error ? error.message : "could not delete image.";
+              if (error instanceof Error && error.message.includes("session expired")) {
+                adminToken = "";
+                sessionStorage.removeItem("galleryAdminToken");
+                updateAdminControls();
+                await loadGallery();
+              } else {
+                deleteButton.disabled = false;
+              }
+            }
+          });
+          figure.append(deleteButton);
+        }
         grid.append(figure);
       }
     }
@@ -159,6 +218,36 @@
 
     const importButton = document.getElementById("gallery-import");
     const urlInput = document.getElementById("gallery-image-url");
+
+    adminLoginButton.addEventListener("click", () => {
+      adminLoginForm.hidden = !adminLoginForm.hidden;
+      if (!adminLoginForm.hidden) adminPassword.focus();
+    });
+
+    adminLogoutButton.addEventListener("click", async () => {
+      adminToken = "";
+      sessionStorage.removeItem("galleryAdminToken");
+      adminStatus.textContent = "logged out.";
+      updateAdminControls();
+      await loadGallery();
+    });
+
+    adminLoginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = adminPassword.value;
+      adminStatus.textContent = "logging in…";
+      try {
+        const result = await adminRequest({ action: "login", password });
+        adminToken = result.token;
+        sessionStorage.setItem("galleryAdminToken", adminToken);
+        adminPassword.value = "";
+        adminStatus.textContent = "logged in. admin controls enabled.";
+        updateAdminControls();
+        await loadGallery();
+      } catch (error) {
+        adminStatus.textContent = error instanceof Error ? error.message : "login failed.";
+      }
+    });
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -215,11 +304,12 @@
       }
     });
 
+    updateAdminControls();
     await loadGallery();
     supabase
       .channel("gallery-live")
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "gallery_images"
       }, () => loadGallery())
