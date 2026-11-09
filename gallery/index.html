@@ -192,7 +192,7 @@
         body.append("file", file, file.name || "image");
         const response = await fetch(UPLOAD_URL, {
           method: "POST",
-          headers: { apikey: SUPABASE_KEY },
+          headers: { apikey: SUPABASE_KEY, ...(adminToken ? { "x-gallery-admin-token": adminToken } : {}) },
           body,
           signal: controller.signal
         });
