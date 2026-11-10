@@ -44,7 +44,6 @@
     <main id="content">
       <section id="gallery-section">
         <h1>gallery</h1>
-        <p>anonymous uploads. images, gifs, and short videos. max 5 MB per file.</p>
         <form id="gallery-upload-form">
           <label for="gallery-file">choose media</label>
           <div class="gallery-upload-controls">
@@ -95,7 +94,8 @@
     const adminStatus = $("gallery-admin-status");
     const MEDIA_TYPES = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/ogg","video/quicktime"];
     const IMAGE_TYPES = MEDIA_TYPES.filter(type => type.startsWith("image/"));
-    const MAX_BYTES = 5 * 1024 * 1024;
+    const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+    const VIDEO_MAX_BYTES = 10 * 1024 * 1024;
     let adminToken = sessionStorage.getItem("galleryAdminToken") || "";
     let galleryItems = [];
     let statsById = new Map();
@@ -240,7 +240,8 @@
 
     async function uploadFile(file) {
       if (!MEDIA_TYPES.includes(file.type)) throw new Error("unsupported media type. use JPEG, PNG, WebP, GIF, MP4, WebM, Ogg, or QuickTime.");
-      if (file.size < 1 || file.size > MAX_BYTES) throw new Error("file must be between 1 byte and 5 MB.");
+      const maxBytes = isVideo(file.type) ? VIDEO_MAX_BYTES : IMAGE_MAX_BYTES;
+      if (file.size < 1 || file.size > maxBytes) throw new Error(isVideo(file.type) ? "video files must be between 1 byte and 10 MB." : "image files must be between 1 byte and 5 MB.");
       submitButton.disabled = true; importButton.disabled = true; status.textContent = "uploading…";
       try {
         const body = new FormData(); body.append("file",file,file.name || "upload"); body.append("visitor_id",visitorId);
@@ -312,7 +313,7 @@
         if (!response.ok) throw new Error("image source returned HTTP " + response.status);
         const blob = await response.blob();
         if (!IMAGE_TYPES.includes(blob.type.split(";")[0].toLowerCase())) throw new Error("URL must return a supported image.");
-        if (blob.size > MAX_BYTES) throw new Error("image exceeds the 5 MB limit.");
+        if (blob.size > IMAGE_MAX_BYTES) throw new Error("image exceeds the 5 MB limit.");
         const ext = blob.type === "image/jpeg" ? "jpg" : blob.type.split("/")[1];
         const name = decodeURIComponent(parsed.pathname.split("/").pop() || "imported-image." + ext);
         await uploadFile(new File([blob],name,{type:blob.type}));
