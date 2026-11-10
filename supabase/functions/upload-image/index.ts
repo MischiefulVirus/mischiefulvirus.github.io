@@ -189,7 +189,7 @@ serve(async (req) => {
       if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
         return reply({ error: "admin session expired; log in again" }, 401, headers);
       }
-      const listing = await fetch(SUPABASE_URL + "/rest/v1/gallery_images?select=id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name,uploader_hash&order=created_at.desc&limit=100", {
+      const listing = await fetch(SUPABASE_URL + "/rest/v1/gallery_images?select=id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name&order=created_at.desc&limit=100", {
         headers: restHeaders()
       });
       if (!listing.ok) return reply({ error: "could not load moderation queue" }, 502, headers);
