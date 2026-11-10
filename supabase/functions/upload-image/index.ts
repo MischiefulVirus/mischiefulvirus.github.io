@@ -217,11 +217,25 @@ serve(async (req) => {
       if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
         return reply({ error: "admin session expired; log in again" }, 401, headers);
       }
-      const listing = await fetch(SUPABASE_URL + "/rest/v1/gallery_images?select=id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name&order=created_at.desc&limit=100", {
+      const listing = await fetch(SUPABASE_URL + "/rest/v1/gallery_images?select=id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name,is_anonymous&order=created_at.desc&limit=100", {
         headers: restHeaders()
       });
       if (!listing.ok) return reply({ error: "could not load moderation queue" }, 502, headers);
-      return reply({ success: true, images: await listing.json().catch(() => []) }, 200, headers);
+      const images = await listing.json().catch(() => []);
+      const anonymousIds = (Array.isArray(images) ? images : []).filter((row: Record<string, unknown>) => row.is_anonymous).map((row: Record<string, unknown>) => String(row.id));
+      let privateNames: Array<{image_id:string;uploader_name:string}> = [];
+      if (anonymousIds.length) {
+        const ids = anonymousIds.map(id => encodeURIComponent(id)).join(",");
+        const privateResponse = await fetch(SUPABASE_URL + "/rest/v1/gallery_upload_private?image_id=in.(" + ids + ")&select=image_id,uploader_name", { headers: restHeaders() });
+        if (!privateResponse.ok) return reply({ error: "could not load private uploader identities" }, 502, headers);
+        privateNames = await privateResponse.json().catch(() => []);
+      }
+      const nameById = new Map(privateNames.map(row => [row.image_id,row.uploader_name]));
+      const adminImages = (Array.isArray(images) ? images : []).map((row: Record<string, unknown>) => ({
+        ...row,
+        uploader_name: row.is_anonymous ? (nameById.get(String(row.id)) || "identity unavailable") : row.uploader_name
+      }));
+      return reply({ success: true, images: adminImages }, 200, headers);
     }
 
     if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
@@ -416,12 +430,14 @@ serve(async (req) => {
   if (!RATE_LIMIT_PEPPER) return reply({ error: "upload rate limiting is not configured" }, 500, headers);
   let file: File;
   let visitorId = "";
+  let anonymousUpload = false;
   try {
     const form = await req.formData();
     const candidate = form.get("file");
     if (!(candidate instanceof File)) return reply({ error: "missing media file" }, 400, headers);
     file = candidate;
     visitorId = typeof form.get("visitor_id") === "string" ? String(form.get("visitor_id")) : "";
+    anonymousUpload = form.get("anonymous") === "true";
   } catch {
     return reply({ error: "invalid multipart upload" }, 400, headers);
   }
@@ -488,7 +504,9 @@ serve(async (req) => {
     headers: { ...authHeaders, "Prefer": "return=representation" },
     body: JSON.stringify({
       object_path: objectPath, original_name: originalName, mime_type: mime,
-      size_bytes: file.size, uploader_hash: visitor.visitorHash, uploader_name: visitor.displayName
+      size_bytes: file.size, uploader_hash: visitor.visitorHash,
+      uploader_name: anonymousUpload ? null : visitor.displayName,
+      is_anonymous: anonymousUpload
     })
   });
   if (!inserted.ok) {
@@ -499,6 +517,17 @@ serve(async (req) => {
 
   const insertedRows = await inserted.json().catch(() => []);
   const imageId = Array.isArray(insertedRows) && insertedRows[0]?.id ? String(insertedRows[0].id) : "";
+  if (anonymousUpload && imageId) {
+    const privateIdentity = await fetch(SUPABASE_URL + "/rest/v1/gallery_upload_private", {
+      method: "POST", headers: { ...authHeaders, "Prefer": "return=minimal" },
+      body: JSON.stringify({ image_id: imageId, uploader_name: visitor.displayName })
+    });
+    if (!privateIdentity.ok) {
+      await fetch(SUPABASE_URL + "/storage/v1/object/gallery/" + objectPath, { method: "DELETE", headers: authHeaders }).catch(() => {});
+      await fetch(SUPABASE_URL + "/rest/v1/gallery_images?id=eq." + encodeURIComponent(imageId), { method: "DELETE", headers: authHeaders }).catch(() => {});
+      return reply({ error: "could not securely save private uploader identity" }, 502, headers);
+    }
+  }
   if (DISCORD_WEBHOOK_URL) {
     const galleryLink = "https://01.nya.je/gallery/" + (imageId ? "?image=" + encodeURIComponent(imageId) : "");
     const publicMediaUrl = SUPABASE_URL + "/storage/v1/object/public/gallery/" +
@@ -511,7 +540,7 @@ serve(async (req) => {
         embeds: [{
           title: "new gallery submission",
           url: galleryLink,
-          description: originalName + " • " + mime + " • " + file.size + " bytes • by " + visitor.displayName,
+          description: originalName + " • " + mime + " • " + file.size + " bytes • by " + (anonymousUpload ? "anonymous" : visitor.displayName),
           ...(mime.startsWith("image/") ? { image: { url: publicMediaUrl } } : { thumbnail: { url: "https://01.nya.je/favicon.ico" } })
         }]
       })
