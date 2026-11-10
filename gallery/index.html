@@ -18,6 +18,8 @@
     .gallery-upload-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:.5em 0; }
     #gallery-status, #gallery-admin-status { min-height:1.2em; font-size:.8em; }
     .gallery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .gallery-leaderboard-link { display:inline-block; margin:1em 0 .75em; padding:.5em .85em; color:#f00; background:#080000; border:1px solid #800; text-decoration:none; }
+    .gallery-leaderboard-link:hover { color:#000; background:#f00; }
     .gallery-grid figure { min-width:0; margin:0; border:1px solid #400; padding:6px; }
     .gallery-grid .media-thumb { display:block; width:100%; aspect-ratio:1; object-fit:contain; background:#050000; cursor:pointer; }
     .gallery-grid figcaption { font-size:.72em; overflow-wrap:anywhere; padding-top:5px; }
@@ -87,6 +89,7 @@
           <div id="gallery-admin-queue" hidden></div>
         </section>
 
+        <a class="gallery-leaderboard-link" href="../leaderboard.html">view leaderboard →</a>
         <div id="gallery-grid" class="gallery-grid" aria-live="polite"><p>loading submissions…</p></div>
       </section>
     </main>
