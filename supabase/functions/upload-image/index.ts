@@ -259,6 +259,24 @@ serve(async (req) => {
       return reply({ success: true, images: adminImages }, 200, headers);
     }
 
+    if (body.action === "comment-counts") {
+      const imageIds = Array.isArray(body.image_ids) ? body.image_ids.filter((id: unknown) =>
+        typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+      ).slice(0,100) as string[] : [];
+      if (!imageIds.length) return reply({ success:true, counts:{} }, 200, headers);
+      const ids = imageIds.map(id => encodeURIComponent(id)).join(",");
+      const response = await fetch(SUPABASE_URL + "/rest/v1/gallery_comments?image_id=in.(" + ids + ")&select=image_id&limit=10000", { headers: restHeaders() });
+      if (!response.ok) return reply({ error:"could not load comment counts" }, 502, headers);
+      const rows = await response.json().catch(() => []);
+      const counts: Record<string,number> = {};
+      for (const id of imageIds) counts[id] = 0;
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const id = String(row.image_id || "");
+        if (id in counts) counts[id]++;
+      }
+      return reply({ success:true, counts }, 200, headers);
+    }
+
     if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
       const imageId = typeof body.image_id === "string" ? body.image_id : "";
       if (!(await validImageId(imageId))) return reply({ error: "invalid image id" }, 400, headers);
