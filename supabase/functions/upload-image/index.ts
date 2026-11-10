@@ -23,7 +23,7 @@ function cors(origin: string | null) {
 function reply(body: unknown, status: number, headers: Record<string,string>) {
   return new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
 }
-function validImage(bytes: Uint8Array, mime: string) {
+function validMedia(bytes: Uint8Array, mime: string) {
   const starts = (...sig: number[]) => sig.every((v, i) => bytes[i] === v);
   if (mime === "image/jpeg") return starts(0xff,0xd8,0xff);
   if (mime === "image/png") return starts(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
@@ -32,7 +32,62 @@ function validImage(bytes: Uint8Array, mime: string) {
     const signature = String.fromCharCode(...bytes.slice(0,6));
     return bytes.length >= 6 && (signature === "GIF87a" || signature === "GIF89a");
   }
+  if (mime === "video/mp4" || mime === "video/quicktime") {
+    return bytes.length >= 12 && String.fromCharCode(...bytes.slice(4,8)) === "ftyp";
+  }
+  if (mime === "video/webm") return bytes.length >= 4 && starts(0x1a,0x45,0xdf,0xa3);
+  if (mime === "video/ogg") return bytes.length >= 4 && String.fromCharCode(...bytes.slice(0,4)) === "OggS";
   return false;
+}
+function mediaExtension(mime: string) {
+  const extensions: Record<string,string> = {
+    "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif",
+    "video/mp4":"mp4", "video/webm":"webm", "video/ogg":"ogv", "video/quicktime":"mov"
+  };
+  return extensions[mime] || "bin";
+}
+const adjectives = ["ashen","astral","cryptic","distant","dreaming","faded","forgotten","hollow","lucid","midnight","mythic","silent","velvet","vivid","withered"];
+const nouns = ["angel","archive","comet","echo","ghost","hunter","orchid","phantom","raven","signal","specter","wanderer","wraith","zero"];
+function randomInt(max: number) {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return bytes[0] % max;
+}
+async function ensureVisitor(visitorId: string) {
+  if (!RATE_LIMIT_PEPPER) throw new Error("visitor identity is not configured");
+  if (!/^[0-9a-f-]{36}$/i.test(visitorId)) throw new Error("invalid visitor identity");
+  const visitorHash = await sha256(RATE_LIMIT_PEPPER + ":gallery-visitor:" + visitorId);
+  const endpoint = SUPABASE_URL + "/rest/v1/gallery_visitors";
+  const lookup = await fetch(endpoint + "?visitor_hash=eq." + visitorHash + "&select=display_name", { headers: restHeaders() });
+  if (!lookup.ok) throw new Error("could not look up visitor identity");
+  const existing = await lookup.json().catch(() => []);
+  if (Array.isArray(existing) && existing[0]?.display_name) {
+    await fetch(endpoint + "?visitor_hash=eq." + visitorHash, {
+      method: "PATCH", headers: { ...restHeaders(), "Prefer":"return=minimal" },
+      body: JSON.stringify({ last_seen_at: new Date().toISOString() })
+    });
+    return { visitorHash, displayName: String(existing[0].display_name) };
+  }
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const displayName = adjectives[randomInt(adjectives.length)] + "-" +
+      nouns[randomInt(nouns.length)] + "-" + (randomInt(9000) + 1000);
+    const inserted = await fetch(endpoint, {
+      method: "POST", headers: { ...restHeaders(), "Prefer":"return=representation" },
+      body: JSON.stringify({ visitor_hash: visitorHash, display_name: displayName })
+    });
+    if (inserted.ok) return { visitorHash, displayName };
+    if (inserted.status === 409) {
+      const retryLookup = await fetch(endpoint + "?visitor_hash=eq." + visitorHash + "&select=display_name", { headers: restHeaders() });
+      const rows = await retryLookup.json().catch(() => []);
+      if (Array.isArray(rows) && rows[0]?.display_name) return { visitorHash, displayName: String(rows[0].display_name) };
+      continue;
+    }
+    throw new Error("could not create visitor identity");
+  }
+  throw new Error("could not assign a unique display name");
+}
+async function validImageId(id: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 function cleanName(name: string) {
   const base = name.split(/[\\/]/).pop() ?? "image";
@@ -130,6 +185,55 @@ serve(async (req) => {
       return reply({ error: "incorrect password" }, 401, headers);
     }
 
+    if (body.action === "admin-list") {
+      if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
+        return reply({ error: "admin session expired; log in again" }, 401, headers);
+      }
+      const listing = await fetch(SUPABASE_URL + "/rest/v1/gallery_images?select=id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name,uploader_hash&order=created_at.desc&limit=100", {
+        headers: restHeaders()
+      });
+      if (!listing.ok) return reply({ error: "could not load moderation queue" }, 502, headers);
+      return reply({ success: true, images: await listing.json().catch(() => []) }, 200, headers);
+    }
+
+    if (body.action === "react") {
+      const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+      const imageId = typeof body.image_id === "string" ? body.image_id : "";
+      const reaction = body.reaction;
+      if (!validImageId(imageId) || !["upvote","downvote","sob"].includes(String(reaction))) {
+        return reply({ error: "invalid reaction request" }, 400, headers);
+      }
+      let visitor;
+      try { visitor = await ensureVisitor(visitorId); }
+      catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+      const base = SUPABASE_URL + "/rest/v1/";
+      if (reaction === "sob") {
+        const response = await fetch(base + "gallery_sobs?on_conflict=image_id,visitor_hash", {
+          method: "POST", headers: { ...restHeaders(), "Prefer":"resolution=ignore-duplicates,return=minimal" },
+          body: JSON.stringify({ image_id: imageId, visitor_hash: visitor.visitorHash })
+        });
+        if (!response.ok) return reply({ error: "could not save sob reaction" }, 502, headers);
+        return reply({ success: true, display_name: visitor.displayName }, 200, headers);
+      }
+      const vote = reaction === "upvote" ? 1 : -1;
+      const existingResponse = await fetch(base + "gallery_votes?image_id=eq." + imageId + "&visitor_hash=eq." + visitor.visitorHash + "&select=vote", { headers: restHeaders() });
+      if (!existingResponse.ok) return reply({ error: "could not check existing vote" }, 502, headers);
+      const existingRows = await existingResponse.json().catch(() => []);
+      if (Array.isArray(existingRows) && existingRows[0]?.vote === vote) {
+        const removed = await fetch(base + "gallery_votes?image_id=eq." + imageId + "&visitor_hash=eq." + visitor.visitorHash, {
+          method: "DELETE", headers: { ...restHeaders(), "Prefer":"return=minimal" }
+        });
+        if (!removed.ok) return reply({ error: "could not remove vote" }, 502, headers);
+        return reply({ success: true, vote: 0, display_name: visitor.displayName }, 200, headers);
+      }
+      const saved = await fetch(base + "gallery_votes?on_conflict=image_id,visitor_hash", {
+        method: "POST", headers: { ...restHeaders(), "Prefer":"resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ image_id: imageId, visitor_hash: visitor.visitorHash, vote, updated_at: new Date().toISOString() })
+      });
+      if (!saved.ok) return reply({ error: "could not save vote" }, 502, headers);
+      return reply({ success: true, vote, display_name: visitor.displayName }, 200, headers);
+    }
+
     if (body.action === "delete") {
       if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
         return reply({ error: "admin session expired; log in again" }, 401, headers);
@@ -170,18 +274,20 @@ serve(async (req) => {
 
   if (!RATE_LIMIT_PEPPER) return reply({ error: "upload rate limiting is not configured" }, 500, headers);
   let file: File;
+  let visitorId = "";
   try {
     const form = await req.formData();
     const candidate = form.get("file");
-    if (!(candidate instanceof File)) return reply({ error: "missing image file" }, 400, headers);
+    if (!(candidate instanceof File)) return reply({ error: "missing media file" }, 400, headers);
     file = candidate;
+    visitorId = typeof form.get("visitor_id") === "string" ? String(form.get("visitor_id")) : "";
   } catch {
     return reply({ error: "invalid multipart upload" }, 400, headers);
   }
-  if (file.size < 1 || file.size > MAX_BYTES) return reply({ error: "image must be between 1 byte and 5 MB" }, 413, headers);
+  if (file.size < 1 || file.size > MAX_BYTES) return reply({ error: "file must be between 1 byte and 5 MB" }, 413, headers);
   const mime = file.type.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!validImage(bytes, mime)) return reply({ error: "file must be a valid JPEG, PNG, WebP, or GIF image" }, 415, headers);
+  if (!validMedia(bytes, mime)) return reply({ error: "file must be a valid JPEG, PNG, WebP, GIF, MP4, WebM, Ogg, or QuickTime video" }, 415, headers);
 
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = req.headers.get("cf-connecting-ip") || forwarded || "unknown";
@@ -201,8 +307,12 @@ serve(async (req) => {
     if (!allowed) return reply({ error: "one upload per minute; please wait before trying again" }, 429, headers);
   }
 
-  const originalName = cleanName(file.name || "image");
-  const extension = mime === "image/jpeg" ? "jpg" : mime.split("/")[1];
+  let visitor;
+  try { visitor = await ensureVisitor(visitorId); }
+  catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+
+  const originalName = cleanName(file.name || "upload");
+  const extension = mediaExtension(mime);
   const objectPath = crypto.randomUUID() + "." + extension;
   const storage = await fetch(SUPABASE_URL + "/storage/v1/object/gallery/" + objectPath, {
     method: "POST",
@@ -217,7 +327,10 @@ serve(async (req) => {
   const inserted = await fetch(SUPABASE_URL + "/rest/v1/gallery_images", {
     method: "POST",
     headers: { ...authHeaders, "Prefer": "return=representation" },
-    body: JSON.stringify({ object_path: objectPath, original_name: originalName, mime_type: mime, size_bytes: file.size })
+    body: JSON.stringify({
+      object_path: objectPath, original_name: originalName, mime_type: mime,
+      size_bytes: file.size, uploader_hash: visitor.visitorHash, uploader_name: visitor.displayName
+    })
   });
   if (!inserted.ok) {
     await fetch(SUPABASE_URL + "/storage/v1/object/gallery/" + objectPath, { method: "DELETE", headers: authHeaders }).catch(() => {});
@@ -225,21 +338,25 @@ serve(async (req) => {
     return reply({ error: "could not save gallery metadata", detail: detail.slice(0,300) }, 502, headers);
   }
 
+  const insertedRows = await inserted.json().catch(() => []);
+  const imageId = Array.isArray(insertedRows) && insertedRows[0]?.id ? String(insertedRows[0].id) : "";
   if (DISCORD_WEBHOOK_URL) {
-    const publicImageUrl = SUPABASE_URL + "/storage/v1/object/public/gallery/" +
+    const galleryLink = "https://01.nya.je/gallery/" + (imageId ? "?image=" + encodeURIComponent(imageId) : "");
+    const publicMediaUrl = SUPABASE_URL + "/storage/v1/object/public/gallery/" +
       objectPath.split("/").map(encodeURIComponent).join("/");
     fetch(DISCORD_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: "new gallery image",
+        content: "new gallery submission",
         embeds: [{
-          title: "new gallery image",
-          description: originalName + " • " + mime + " • " + file.size + " bytes",
-          image: { url: publicImageUrl }
+          title: "new gallery submission",
+          url: galleryLink,
+          description: originalName + " • " + mime + " • " + file.size + " bytes • by " + visitor.displayName,
+          ...(mime.startsWith("image/") ? { image: { url: publicMediaUrl } } : { thumbnail: { url: "https://01.nya.je/favicon.ico" } })
         }]
       })
     }).catch(() => {});
   }
-  return reply({ success: true, object_path: objectPath }, 201, headers);
+  return reply({ success: true, id: imageId, object_path: objectPath, uploader_name: visitor.displayName }, 201, headers);
 });
