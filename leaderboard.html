@@ -23,7 +23,8 @@
     <main id="content">
       <section id="leaderboard">
         <h1>gallery leaderboard</h1>
-        <p>ranked by net votes (upvotes minus downvotes).</p>
+        <p>sort the leaderboard by net votes or total sobs.</p>
+        <label for="leaderboard-sort">sort by </label><select id="leaderboard-sort"><option value="score">net votes</option><option value="sobs">sobs</option></select>
         <div id="leaderboard-list" aria-live="polite">loading…</div>
       </section>
     </main>
@@ -35,14 +36,17 @@
     const KEY = "sb_publishable_oZTa8kXl9UbMsWJXOWrMZw_rg_z8Mdt";
     const db = createClient(URL,KEY);
     const list = document.getElementById("leaderboard-list");
+    const sortSelect = document.getElementById("leaderboard-sort");
     const mediaUrl = path => URL + "/storage/v1/object/public/gallery/" + path.split("/").map(encodeURIComponent).join("/");
     const isVideo = mime => String(mime || "").startsWith("video/");
-    try {
-      const statsResult = await db.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs").order("score",{ascending:false}).limit(100);
-      if (statsResult.error) throw statsResult.error;
-      const stats = statsResult.data || [];
-      if (!stats.length) { list.textContent = "no votes yet."; }
-      else {
+    async function loadLeaderboard() {
+      list.textContent = "loading…";
+      try {
+        const sortBy = sortSelect.value === "sobs" ? "sobs" : "score";
+        const statsResult = await db.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs").order(sortBy,{ascending:false}).order("score",{ascending:false}).limit(100);
+        if (statsResult.error) throw statsResult.error;
+        const stats = statsResult.data || [];
+        if (!stats.length) { list.textContent = "no votes yet."; return; }
         const ids = stats.map(row => row.image_id);
         const imageResult = await db.from("gallery_images").select("id,object_path,original_name,mime_type,uploader_name").in("id",ids);
         if (imageResult.error) throw imageResult.error;
@@ -71,11 +75,13 @@
           details.append(title,meta,net); entry.append(media,details); list.append(entry);
         }
         if (!rank) list.textContent = "no ranked uploads yet.";
+      } catch(error) {
+        console.error(error);
+        list.textContent = "could not load leaderboard.";
       }
-    } catch(error) {
-      console.error(error);
-      list.textContent = "could not load leaderboard.";
     }
+    sortSelect.addEventListener("change",loadLeaderboard);
+    loadLeaderboard();
   </script>
 </body>
 </html>
