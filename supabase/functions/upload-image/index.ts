@@ -224,7 +224,7 @@ serve(async (req) => {
       return reply({ success: true, images: await listing.json().catch(() => []) }, 200, headers);
     }
 
-    if (body.action === "comments-list" || body.action === "comment-create") {
+    if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
       const imageId = typeof body.image_id === "string" ? body.image_id : "";
       if (!(await validImageId(imageId))) return reply({ error: "invalid image id" }, 400, headers);
       const base = SUPABASE_URL + "/rest/v1/";
