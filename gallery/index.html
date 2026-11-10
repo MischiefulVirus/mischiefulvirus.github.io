@@ -54,6 +54,12 @@
             <input id="gallery-image-url" type="url" inputmode="url" placeholder="https://… image URL" aria-label="Image URL">
             <button id="gallery-import" type="button">import image URL</button>
           </div>
+          <div class="gallery-upload-controls">
+            <input id="gallery-cooldown-password" type="password" autocomplete="current-password" placeholder="no-cooldown password" aria-label="No-cooldown password">
+            <button id="gallery-cooldown-login" type="button">unlock no cooldown</button>
+            <button id="gallery-cooldown-logout" type="button" hidden>lock cooldown</button>
+          </div>
+          <p id="gallery-cooldown-status" role="status" aria-live="polite"></p>
           <p id="gallery-status" role="status" aria-live="polite"></p>
         </form>
 
@@ -97,6 +103,7 @@
     const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
     const VIDEO_MAX_BYTES = 10 * 1024 * 1024;
     let adminToken = sessionStorage.getItem("galleryAdminToken") || "";
+    let cooldownToken = sessionStorage.getItem("galleryCooldownToken") || "";
     let galleryItems = [];
     let statsById = new Map();
     let visitorId = localStorage.getItem("galleryVisitorId");
@@ -245,13 +252,43 @@
       submitButton.disabled = true; importButton.disabled = true; status.textContent = "uploading…";
       try {
         const body = new FormData(); body.append("file",file,file.name || "upload"); body.append("visitor_id",visitorId);
-        const response = await fetch(UPLOAD_URL,{method:"POST",headers:{apikey:SUPABASE_KEY,...(adminToken?{"x-gallery-admin-token":adminToken}:{})},body});
+        const response = await fetch(UPLOAD_URL,{method:"POST",headers:{
+          apikey:SUPABASE_KEY,
+          ...(adminToken?{"x-gallery-admin-token":adminToken}:{}),
+          ...(cooldownToken?{"x-gallery-cooldown-token":cooldownToken}:{})
+        },body});
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "upload failed (HTTP " + response.status + ")");
         status.textContent = "uploaded as " + (result.uploader_name || "anonymous visitor") + ".";
         form.reset(); await loadGallery();
       } finally { submitButton.disabled = false; importButton.disabled = false; }
     }
+
+    function updateCooldownControls() {
+      $("gallery-cooldown-login").hidden = Boolean(cooldownToken);
+      $("gallery-cooldown-logout").hidden = !cooldownToken;
+      $("gallery-cooldown-password").hidden = Boolean(cooldownToken);
+      if (cooldownToken) $("gallery-cooldown-password").value = "";
+    }
+    $("gallery-cooldown-login").addEventListener("click",async () => {
+      const input = $("gallery-cooldown-password");
+      const message = $("gallery-cooldown-status");
+      message.textContent = "checking password…";
+      try {
+        const result = await api({action:"cooldown-login",password:input.value});
+        cooldownToken = result.token;
+        sessionStorage.setItem("galleryCooldownToken",cooldownToken);
+        input.value = "";
+        updateCooldownControls();
+        message.textContent = "no upload cooldown enabled for this session.";
+      } catch(error) { message.textContent = error.message || "password check failed."; }
+    });
+    $("gallery-cooldown-logout").addEventListener("click",() => {
+      cooldownToken = "";
+      sessionStorage.removeItem("galleryCooldownToken");
+      updateCooldownControls();
+      $("gallery-cooldown-status").textContent = "upload cooldown restored.";
+    });
 
     $("gallery-admin-login-button").addEventListener("click",() => {
       const login = $("gallery-admin-login-form"); login.hidden = !login.hidden;
@@ -324,6 +361,7 @@
     });
 
     updateAdminControls();
+    updateCooldownControls();
     await loadGallery();
     if (adminToken) await loadAdminQueue();
     supabase.channel("gallery-live").on("postgres_changes",{event:"*",schema:"public",table:"gallery_images"},loadGallery).subscribe();
