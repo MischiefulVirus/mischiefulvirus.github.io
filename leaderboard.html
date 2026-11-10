@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gallery leaderboard</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    #leaderboard { margin-top:2em; }
+    #leaderboard-list { display:grid; gap:10px; }
+    .leader-entry { display:grid; grid-template-columns:80px 1fr; gap:12px; border:1px solid #400; padding:8px; align-items:center; }
+    .leader-entry img,.leader-entry video { width:80px; height:80px; object-fit:contain; background:#050000; }
+    .leader-meta { font-size:.75em; }
+    .leader-score { color:#f66; }
+    @media(max-width:800px) { .leader-entry { grid-template-columns:64px 1fr; } .leader-entry img,.leader-entry video { width:64px;height:64px; } }
+  </style>
+</head>
+<body>
+  <a href="#content" id="skip-to-content-link">Skip to content</a>
+  <div class="layout">
+    <header><div class="header-content"><nav><ul><li><a href="/">/</a></li><li><a href="./gallery/">/gallery</a></li><li><strong>/leaderboard</strong></li></ul></nav></div></header>
+    <aside class="left-sidebar"><div class="sidebar-section"><div class="sidebar-title">⫘⫘⫘⫘⫘⫘</div><img alt="" src="./jji.gif"></div></aside>
+    <main id="content">
+      <section id="leaderboard">
+        <h1>gallery leaderboard</h1>
+        <p>ranked by net votes (upvotes minus downvotes).</p>
+        <div id="leaderboard-list" aria-live="polite">loading…</div>
+      </section>
+    </main>
+    <footer></footer>
+  </div>
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    const URL = "https://mkpgkkgqivbohokhwqzz.supabase.co";
+    const KEY = "sb_publishable_oZTa8kXl9UbMsWJXOWrMZw_rg_z8Mdt";
+    const db = createClient(URL,KEY);
+    const list = document.getElementById("leaderboard-list");
+    const mediaUrl = path => URL + "/storage/v1/object/public/gallery/" + path.split("/").map(encodeURIComponent).join("/");
+    const isVideo = mime => String(mime || "").startsWith("video/");
+    try {
+      const statsResult = await db.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs").order("score",{ascending:false}).limit(100);
+      if (statsResult.error) throw statsResult.error;
+      const stats = statsResult.data || [];
+      if (!stats.length) { list.textContent = "no votes yet."; }
+      else {
+        const ids = stats.map(row => row.image_id);
+        const imageResult = await db.from("gallery_images").select("id,object_path,original_name,mime_type,uploader_name").in("id",ids);
+        if (imageResult.error) throw imageResult.error;
+        const byId = new Map((imageResult.data || []).map(row => [row.id,row]));
+        list.replaceChildren();
+        let rank = 0;
+        for (const score of stats) {
+          const item = byId.get(score.image_id);
+          if (!item) continue;
+          rank++;
+          const entry = document.createElement("article"); entry.className = "leader-entry";
+          const media = document.createElement(isVideo(item.mime_type) ? "video" : "img");
+          media.src = mediaUrl(item.object_path);
+          if (media.tagName === "VIDEO") { media.muted = true; media.preload = "metadata"; }
+          else { media.alt = item.original_name || "gallery upload"; media.loading = "lazy"; }
+          const details = document.createElement("div");
+          const title = document.createElement("div");
+          const link = document.createElement("a");
+          link.href = "./gallery/?image=" + encodeURIComponent(item.id);
+          link.textContent = "#" + rank + " · " + (item.original_name || "untitled upload");
+          title.append(link);
+          const meta = document.createElement("div"); meta.className = "leader-meta";
+          meta.textContent = "by " + (item.uploader_name || "unknown visitor") + " · " + score.upvotes + " up · " + score.downvotes + " down · " + score.sobs + " sobs";
+          const net = document.createElement("div"); net.className = "leader-meta leader-score";
+          net.textContent = "score: " + score.score;
+          details.append(title,meta,net); entry.append(media,details); list.append(entry);
+        }
+        if (!rank) list.textContent = "no ranked uploads yet.";
+      }
+    } catch(error) {
+      console.error(error);
+      list.textContent = "could not load leaderboard.";
+    }
+  </script>
+</body>
+</html>
