@@ -35,6 +35,9 @@
     #gallery-comment-list { display:grid; gap:8px; margin-top:12px; max-height:30vh; overflow:auto; }
     .gallery-comment { border:1px solid #300; padding:8px; overflow-wrap:anywhere; }
     .gallery-comment-meta { color:#b66; font-size:.72em; margin-bottom:4px; }
+    .gallery-comment-reactions { display:flex; gap:6px; margin-top:7px; }
+    .gallery-comment-reactions button { font-size:.72em; }
+    .gallery-comment-reactions button[aria-pressed="true"] { color:#000; background:#f00; border-color:#f00; }
     #gallery-viewer img, #gallery-viewer video { display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; object-fit:contain; }
     .viewer-top { display:flex; justify-content:space-between; gap:1em; align-items:center; margin-bottom:8px; }
     #gallery-admin-queue { margin-top:1em; overflow-x:auto; }
@@ -204,7 +207,7 @@
       const list = $("gallery-comment-list");
       list.textContent = "loading comments…";
       try {
-        const result = await api({ action:"comments-list", image_id:imageId });
+        const result = await api({ action:"comments-list", image_id:imageId, visitor_id:visitorId });
         if (activeCommentImageId !== imageId) return;
         list.replaceChildren();
         if (!result.comments?.length) { addText(list,"p","no comments yet."); return; }
@@ -212,14 +215,36 @@
           const article = document.createElement("article"); article.className = "gallery-comment";
           const meta = document.createElement("div"); meta.className = "gallery-comment-meta";
           const who = comment.display_name || "anonymous";
-          const reaction = comment.vote === 1 ? " · ↑ upvoted" : comment.vote === -1 ? " · ↓ downvoted" : "";
-          meta.textContent = who + reaction + " · " + new Date(comment.created_at).toLocaleString();
+          const photoReaction = comment.vote === 1 ? " · ↑ upvoted photo" : comment.vote === -1 ? " · ↓ downvoted photo" : "";
+          meta.textContent = who + photoReaction + " · " + new Date(comment.created_at).toLocaleString();
           article.append(meta);
           addText(article,"div",comment.body);
+          const reactions = document.createElement("div"); reactions.className = "gallery-comment-reactions";
+          for (const [type,label,count,value] of [
+            ["upvote","↑",comment.upvotes || 0,1],["downvote","↓",comment.downvotes || 0,-1]
+          ]) {
+            const button = document.createElement("button"); button.type = "button";
+            button.textContent = label + " " + count;
+            button.setAttribute("aria-pressed",String(comment.myVote === value));
+            button.setAttribute("aria-label",(type === "upvote" ? "upvote" : "downvote") + " comment");
+            button.addEventListener("click",() => sendCommentReaction(imageId,comment.id,type,button));
+            reactions.append(button);
+          }
+          article.append(reactions);
           list.append(article);
         }
       } catch(error) { list.textContent = error.message || "could not load comments."; }
     }
+    async function sendCommentReaction(imageId,commentId,reaction,button) {
+      button.disabled = true;
+      try {
+        await api({action:"comment-react",image_id:imageId,comment_id:commentId,visitor_id:visitorId,reaction});
+        await loadComments(imageId);
+      } catch(error) {
+        $("gallery-comment-status").textContent = error.message || "could not save comment vote.";
+      } finally { button.disabled = false; }
+    }
+
     $("gallery-comment-form").addEventListener("submit",async event => {
       event.preventDefault();
       const imageId = activeCommentImageId;
