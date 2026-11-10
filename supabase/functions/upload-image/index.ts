@@ -285,9 +285,9 @@ serve(async (req) => {
   } catch {
     return reply({ error: "invalid multipart upload" }, 400, headers);
   }
+  const mime = file.type.toLowerCase();
   const maxBytes = mime.startsWith("video/") ? VIDEO_MAX_BYTES : IMAGE_MAX_BYTES;
   if (file.size < 1 || file.size > maxBytes) return reply({ error: mime.startsWith("video/") ? "video files must be between 1 byte and 10 MB" : "image files must be between 1 byte and 5 MB" }, 413, headers);
-  const mime = file.type.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!validMedia(bytes, mime)) return reply({ error: "file must be a valid JPEG, PNG, WebP, GIF, MP4, WebM, Ogg, or QuickTime video" }, 415, headers);
 
