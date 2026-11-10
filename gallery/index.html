@@ -179,7 +179,8 @@
     function openItem(item, updateUrl = true) {
       if (!item) return;
       closeMedia();
-      $("gallery-viewer-caption").textContent = (item.original_name || "upload") + (item.uploader_name ? " · " + item.uploader_name : "");
+      const uploadedAt = item.created_at ? new Date(item.created_at).toLocaleString() : "upload date unknown";
+      $("gallery-viewer-caption").textContent = (item.original_name || "upload") + (item.uploader_name ? " · " + item.uploader_name : "") + " · uploaded " + uploadedAt;
       const url = mediaUrl(item.object_path);
       if (isVideo(item.mime_type)) {
         viewerVideo.src = url; viewerVideo.hidden = false; viewerImage.hidden = true;
