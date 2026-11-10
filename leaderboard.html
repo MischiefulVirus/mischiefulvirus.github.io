@@ -23,8 +23,8 @@
     <main id="content">
       <section id="leaderboard">
         <h1>gallery leaderboard</h1>
-        <p>sort the leaderboard by net votes or total sobs.</p>
-        <label for="leaderboard-sort">sort by </label><select id="leaderboard-sort"><option value="score">net votes</option><option value="sobs">sobs</option></select>
+        <p>sort the leaderboard by net votes, total sobs, or comments.</p>
+        <label for="leaderboard-sort">sort by </label><select id="leaderboard-sort"><option value="score">net votes</option><option value="sobs">sobs</option><option value="comments">comments</option></select>
         <div id="leaderboard-list" aria-live="polite">loading…</div>
       </section>
     </main>
@@ -42,12 +42,23 @@
     async function loadLeaderboard() {
       list.textContent = "loading…";
       try {
-        const sortBy = sortSelect.value === "sobs" ? "sobs" : "score";
-        const statsResult = await db.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs").order(sortBy,{ascending:false}).order("score",{ascending:false}).limit(100);
+        const sortBy = sortSelect.value;
+        const statsResult = await db.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs").order(sortBy === "sobs" ? "sobs" : "score",{ascending:false}).order("score",{ascending:false}).limit(100);
         if (statsResult.error) throw statsResult.error;
-        const stats = statsResult.data || [];
+        let stats = statsResult.data || [];
         if (!stats.length) { list.textContent = "no votes yet."; return; }
         const ids = stats.map(row => row.image_id);
+        let commentCounts = {};
+        if (sortBy === "comments") {
+          const response = await fetch("https://mkpgkkgqivbohokhwqzz.supabase.co/functions/v1/upload-image", {
+            method:"POST", headers:{apikey:KEY,"Content-Type":"application/json"},
+            body:JSON.stringify({action:"comment-counts",image_ids:ids})
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || "could not load comment counts");
+          commentCounts = result.counts || {};
+          stats.sort((x,y) => (Number(commentCounts[y.image_id]) || 0) - (Number(commentCounts[x.image_id]) || 0) || y.score - x.score);
+        }
         const imageResult = await db.from("gallery_images").select("id,object_path,original_name,mime_type,uploader_name").in("id",ids);
         if (imageResult.error) throw imageResult.error;
         const byId = new Map((imageResult.data || []).map(row => [row.id,row]));
@@ -69,7 +80,8 @@
           link.textContent = "#" + rank + " · " + (item.original_name || "untitled upload");
           title.append(link);
           const meta = document.createElement("div"); meta.className = "leader-meta";
-          meta.textContent = "by " + (item.uploader_name || "unknown visitor") + " · " + score.upvotes + " up · " + score.downvotes + " down · " + score.sobs + " sobs";
+          const commentTotal = Number(commentCounts[item.id]) || 0;
+          meta.textContent = "by " + (item.uploader_name || "unknown visitor") + " · " + score.upvotes + " up · " + score.downvotes + " down · " + score.sobs + " sobs" + (sortBy === "comments" ? " · " + commentTotal + " comments" : "");
           const net = document.createElement("div"); net.className = "leader-meta leader-score";
           net.textContent = "score: " + score.score;
           details.append(title,meta,net); entry.append(media,details); list.append(entry);
