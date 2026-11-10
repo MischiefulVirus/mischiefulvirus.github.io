@@ -213,6 +213,27 @@ serve(async (req) => {
       return reply({ success: true, token: b64url(payload) + "." + b64url(signature), expires_in: 43200 }, 200, headers);
     }
 
+    if (body.action === "webhook-message") {
+      if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
+        return reply({ error: "admin session expired; log in again" }, 401, headers);
+      }
+      if (!DISCORD_WEBHOOK_URL) return reply({ error: "discord webhook is not configured" }, 503, headers);
+      const message = typeof body.message === "string" ? body.message.trim() : "";
+      if (!message || message.length > 2000) {
+        return reply({ error: "messages must be between 1 and 2000 characters" }, 400, headers);
+      }
+      const sent = await fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: message, allowed_mentions: { parse: [] } })
+      });
+      if (!sent.ok) {
+        const detail = await sent.text().catch(() => "");
+        return reply({ error: "discord rejected the message (HTTP " + sent.status + ")", detail: detail.slice(0,200) }, 502, headers);
+      }
+      return reply({ success: true }, 200, headers);
+    }
+
     if (body.action === "admin-list") {
       if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
         return reply({ error: "admin session expired; log in again" }, 401, headers);
