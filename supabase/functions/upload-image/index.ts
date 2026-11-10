@@ -348,7 +348,7 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: "new gallery submission",
+        content: "new gallery submission • [view in gallery](" + galleryLink + ")",
         embeds: [{
           title: "new gallery submission",
           url: galleryLink,
