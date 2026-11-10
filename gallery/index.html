@@ -37,6 +37,8 @@
     .gallery-leaderboard-link { display:inline-block; margin:1em 0 .75em; padding:.5em .85em; color:#f00; background:#080000; border:1px solid #800; text-decoration:none; }
     .gallery-leaderboard-link:hover { color:#000; background:#f00; }
     .gallery-grid figure { min-width:0; margin:0; border:1px solid #400; padding:6px; }
+    .gallery-grid a { display:block; position:relative; }
+    .gallery-comment-count { position:absolute; right:6px; bottom:6px; z-index:1; padding:3px 6px; color:#f00; background:rgb(0 0 0 / 88%); border:1px solid #800; font-size:.72em; pointer-events:none; }
     .gallery-grid .media-thumb { display:block; width:100%; aspect-ratio:1; object-fit:contain; background:#050000; cursor:pointer; }
     .gallery-grid figcaption { font-size:.72em; overflow-wrap:anywhere; padding-top:5px; }
     .uploader-label { color:#b66; font-size:.68em; }
@@ -318,6 +320,13 @@
       if (imagesResult.error) { grid.textContent = "could not load gallery."; console.error(imagesResult.error); return; }
       galleryItems = imagesResult.data || [];
       statsById = new Map((statsResult.data || []).map(row => [row.image_id,row]));
+      let commentCounts = new Map();
+      if (galleryItems.length) {
+        try {
+          const countResult = await api({ action:"comment-counts", image_ids:galleryItems.map(item => item.id) });
+          commentCounts = new Map(Object.entries(countResult.counts || {}));
+        } catch (error) { console.warn("could not load comment counts", error); }
+      }
       grid.replaceChildren();
       if (!galleryItems.length) { addText(grid,"p","nothing here yet."); return; }
       for (const item of galleryItems) {
@@ -334,7 +343,10 @@
           preview = document.createElement("img"); preview.src = mediaUrl(item.object_path);
           preview.alt = item.original_name || "gallery image"; preview.loading = "lazy"; preview.decoding = "async";
         }
-        preview.className = "media-thumb"; open.append(preview); figure.append(open);
+        preview.className = "media-thumb"; open.append(preview);
+        const commentCount = document.createElement("span"); commentCount.className = "gallery-comment-count";
+        commentCount.textContent = "comments " + (Number(commentCounts.get(item.id)) || 0);
+        open.append(commentCount); figure.append(open);
         addText(figure,"figcaption",item.original_name || "upload");
         addText(figure,"div",item.is_anonymous ? "uploaded anonymously" : "uploaded by " + (item.uploader_name || "unknown visitor"),"uploader-label");
         const stats = statsById.get(item.id) || {upvotes:0,downvotes:0,sobs:0,score:0};
