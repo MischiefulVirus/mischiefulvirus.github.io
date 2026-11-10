@@ -1,51 +1,63 @@
 <!DOCTYPE html>
-<!-- gallery integration build 2026-11-08e -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>gallery</title>
-  <link href="../style.css" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    #gallery-section { margin-top: 2em; }
+    #gallery-upload-form, #gallery-admin { border: 1px solid #400; padding: 12px; margin: 1em 0; }
+    #gallery-upload-form label, #gallery-admin label { display:block; margin-bottom:.5em; }
+    #gallery-upload-form input, #gallery-admin input { max-width:100%; color:#f00; background:#080000; border:1px solid #600; padding:.35em; }
+    #gallery-upload-form button, #gallery-admin button, .reaction-row button, #gallery-viewer button {
+      color:#f00; background:#080000; border:1px solid #800; padding:.35em .65em; font:inherit; cursor:pointer;
+    }
+    #gallery-upload-form button:hover, #gallery-admin button:hover, .reaction-row button:hover, #gallery-viewer button:hover { color:#000; background:#f00; }
+    button:disabled { opacity:.45; cursor:wait !important; }
+    .gallery-upload-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:.5em 0; }
+    #gallery-status, #gallery-admin-status { min-height:1.2em; font-size:.8em; }
+    .gallery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .gallery-grid figure { min-width:0; margin:0; border:1px solid #400; padding:6px; }
+    .gallery-grid .media-thumb { display:block; width:100%; aspect-ratio:1; object-fit:contain; background:#050000; cursor:pointer; }
+    .gallery-grid figcaption { font-size:.72em; overflow-wrap:anywhere; padding-top:5px; }
+    .uploader-label { color:#b66; font-size:.68em; }
+    .reaction-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+    .reaction-row button { font-size:.72em; }
+    #gallery-viewer { width:min(94vw,1100px); max-width:none; max-height:94vh; padding:12px; border:1px solid #900; background:#080808; color:#f00; }
+    #gallery-viewer::backdrop { background:rgb(0 0 0 / 90%); }
+    #gallery-viewer img, #gallery-viewer video { display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; object-fit:contain; }
+    .viewer-top { display:flex; justify-content:space-between; gap:1em; align-items:center; margin-bottom:8px; }
+    #gallery-admin-queue { margin-top:1em; overflow-x:auto; }
+    #gallery-admin-queue table { width:100%; border-collapse:collapse; font-size:.72em; }
+    #gallery-admin-queue td, #gallery-admin-queue th { border:1px solid #400; padding:5px; text-align:left; }
+    @media(max-width:800px) { .gallery-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } }
+  </style>
 </head>
 <body>
   <a href="#content" id="skip-to-content-link">Skip to content</a>
   <div class="layout">
-    <header>
-      <div class="header-content">
-        <div class="header-title"></div>
-        <nav>
-          <ul>
-            <li><a href="/">/</a></li>
-            <li><a href="../chat.html">/chat</a></li>
-            <li><a href="../music.html">/music</a></li>
-            <li><strong>/gallery</strong></li>
-          </ul>
-        </nav>
-      </div>
-    </header>
-
-    <aside class="left-sidebar">
-      <div class="sidebar-section">
-        <div class="sidebar-title">⫘⫘⫘⫘⫘⫘</div>
-        <img alt="" src="../jji.gif">
-      </div>
-    </aside>
-
+    <header><div class="header-content">
+      <nav><ul><li><a href="/">/</a></li><li><a href="../chat.html">/chat</a></li><li><a href="../music.html">/music</a></li><li><strong>/gallery</strong></li><li><a href="../leaderboard.html">/leaderboard</a></li></ul></nav>
+    </div></header>
+    <aside class="left-sidebar"><div class="sidebar-section"><div class="sidebar-title">⫘⫘⫘⫘⫘⫘</div><img alt="" src="../jji.gif"></div></aside>
     <main id="content">
       <section id="gallery-section">
         <h1>gallery</h1>
+        <p>anonymous uploads. images, gifs, and short videos. max 5 MB per file.</p>
         <form id="gallery-upload-form">
-          <label for="gallery-file">submit an image (jpeg / png / webp / gif, max 5 MB)</label>
+          <label for="gallery-file">choose media</label>
           <div class="gallery-upload-controls">
-            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+            <input id="gallery-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime" required>
             <button id="gallery-submit" type="submit">upload</button>
           </div>
           <div class="gallery-upload-controls">
             <input id="gallery-image-url" type="url" inputmode="url" placeholder="https://… image URL" aria-label="Image URL">
-            <button id="gallery-import" type="button">import URL</button>
+            <button id="gallery-import" type="button">import image URL</button>
           </div>
           <p id="gallery-status" role="status" aria-live="polite"></p>
         </form>
+
         <section id="gallery-admin" aria-label="gallery administration">
           <button id="gallery-admin-login-button" type="button">admin login</button>
           <button id="gallery-admin-logout-button" type="button" hidden>log out</button>
@@ -55,265 +67,265 @@
             <button type="submit">log in</button>
           </form>
           <p id="gallery-admin-status" role="status" aria-live="polite"></p>
+          <div id="gallery-admin-queue" hidden></div>
         </section>
-        <div id="gallery-grid" class="gallery-grid" aria-live="polite">
-          <p>loading images...</p>
-        </div>
+
+        <div id="gallery-grid" class="gallery-grid" aria-live="polite"><p>loading submissions…</p></div>
       </section>
     </main>
-
     <footer></footer>
   </div>
 
+  <dialog id="gallery-viewer">
+    <div class="viewer-top"><span id="gallery-viewer-caption"></span><button id="gallery-viewer-close" type="button">close</button></div>
+    <img id="gallery-viewer-image" alt="" hidden>
+    <video id="gallery-viewer-video" controls playsinline hidden></video>
+  </dialog>
+
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
     const SUPABASE_URL = "https://mkpgkkgqivbohokhwqzz.supabase.co";
     const SUPABASE_KEY = "sb_publishable_oZTa8kXl9UbMsWJXOWrMZw_rg_z8Mdt";
     const UPLOAD_URL = SUPABASE_URL + "/functions/v1/upload-image";
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    const grid = document.getElementById("gallery-grid");
-    const form = document.getElementById("gallery-upload-form");
-    const fileInput = document.getElementById("gallery-file");
-    const submitButton = document.getElementById("gallery-submit");
-    const status = document.getElementById("gallery-status");
-    const adminLoginButton = document.getElementById("gallery-admin-login-button");
-    const adminLogoutButton = document.getElementById("gallery-admin-logout-button");
-    const adminLoginForm = document.getElementById("gallery-admin-login-form");
-    const adminPassword = document.getElementById("gallery-admin-password");
-    const adminStatus = document.getElementById("gallery-admin-status");
+    const $ = id => document.getElementById(id);
+    const grid = $("gallery-grid"), form = $("gallery-upload-form"), fileInput = $("gallery-file");
+    const status = $("gallery-status"), submitButton = $("gallery-submit"), importButton = $("gallery-import");
+    const viewer = $("gallery-viewer"), viewerImage = $("gallery-viewer-image"), viewerVideo = $("gallery-viewer-video");
+    const adminStatus = $("gallery-admin-status");
+    const MEDIA_TYPES = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/ogg","video/quicktime"];
+    const IMAGE_TYPES = MEDIA_TYPES.filter(type => type.startsWith("image/"));
+    const MAX_BYTES = 5 * 1024 * 1024;
     let adminToken = sessionStorage.getItem("galleryAdminToken") || "";
-
-    function updateAdminControls() {
-      adminLoginButton.hidden = Boolean(adminToken);
-      adminLogoutButton.hidden = !adminToken;
-      if (!adminToken) adminLoginForm.hidden = true;
+    let galleryItems = [];
+    let statsById = new Map();
+    let visitorId = localStorage.getItem("galleryVisitorId");
+    if (!visitorId || !/^[0-9a-f-]{36}$/i.test(visitorId)) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem("galleryVisitorId", visitorId);
     }
 
-    async function adminRequest(payload) {
+    function mediaUrl(path) {
+      return SUPABASE_URL + "/storage/v1/object/public/gallery/" + path.split("/").map(encodeURIComponent).join("/");
+    }
+    function isVideo(mime) { return String(mime || "").startsWith("video/"); }
+    function openItem(item, updateUrl = true) {
+      if (!item) return;
+      closeMedia();
+      $("gallery-viewer-caption").textContent = (item.original_name || "upload") + (item.uploader_name ? " · " + item.uploader_name : "");
+      const url = mediaUrl(item.object_path);
+      if (isVideo(item.mime_type)) {
+        viewerVideo.src = url; viewerVideo.hidden = false; viewerImage.hidden = true;
+      } else {
+        viewerImage.src = url; viewerImage.alt = item.original_name || "gallery image";
+        viewerImage.hidden = false; viewerVideo.hidden = true;
+      }
+      if (!viewer.open) viewer.showModal();
+      if (updateUrl) {
+        const next = new URL(location.href); next.searchParams.set("image", item.id);
+        history.pushState({ galleryImage:item.id }, "", next);
+      }
+    }
+    function closeMedia() {
+      viewerVideo.pause(); viewerVideo.removeAttribute("src"); viewerVideo.load();
+      viewerImage.removeAttribute("src");
+    }
+    function closeViewer(updateUrl = true) {
+      if (viewer.open) viewer.close();
+      closeMedia();
+      if (updateUrl) {
+        const next = new URL(location.href); next.searchParams.delete("image");
+        history.replaceState({}, "", next);
+      }
+    }
+    $("gallery-viewer-close").addEventListener("click", () => closeViewer());
+    viewer.addEventListener("click", event => { if (event.target === viewer) closeViewer(); });
+    viewer.addEventListener("close", closeMedia);
+    window.addEventListener("popstate", () => {
+      const id = new URL(location.href).searchParams.get("image");
+      const item = galleryItems.find(entry => entry.id === id);
+      if (item) openItem(item, false); else closeViewer(false);
+    });
+
+    async function api(payload) {
       const response = await fetch(UPLOAD_URL, {
-        method: "POST",
-        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method:"POST",
+        headers:{ apikey:SUPABASE_KEY, "Content-Type":"application/json" },
+        body:JSON.stringify(payload)
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "admin request failed (HTTP " + response.status + ")");
+      if (!response.ok) throw new Error(result.error || "request failed (HTTP " + response.status + ")");
       return result;
     }
+    async function adminApi(payload) {
+      return api({ ...payload, token:adminToken });
+    }
+    function updateAdminControls() {
+      $("gallery-admin-login-button").hidden = Boolean(adminToken);
+      $("gallery-admin-logout-button").hidden = !adminToken;
+      if (!adminToken) { $("gallery-admin-login-form").hidden = true; $("gallery-admin-queue").hidden = true; }
+    }
+    function addText(parent, tag, text, className) {
+      const node = document.createElement(tag); node.textContent = text;
+      if (className) node.className = className;
+      parent.append(node); return node;
+    }
 
-    function imageUrl(path) {
-      return SUPABASE_URL + "/storage/v1/object/public/gallery/" +
-        path.split("/").map(encodeURIComponent).join("/");
+    async function sendReaction(item, reaction, button) {
+      button.disabled = true;
+      try {
+        await api({ action:"react", visitor_id:visitorId, image_id:item.id, reaction });
+        await loadGallery();
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "reaction failed.";
+      } finally { button.disabled = false; }
     }
 
     async function loadGallery() {
-      const { data, error } = await supabase
-        .from("gallery_images")
-        .select("id,object_path,original_name,created_at")
-        .order("created_at", { ascending: false })
-        .limit(60);
-
-      if (error) {
-        grid.textContent = "could not load gallery.";
-        console.error(error);
-        return;
-      }
-
+      const [imagesResult, statsResult] = await Promise.all([
+        supabase.from("gallery_images").select("id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name").order("created_at",{ascending:false}).limit(100),
+        supabase.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs")
+      ]);
+      if (imagesResult.error) { grid.textContent = "could not load gallery."; console.error(imagesResult.error); return; }
+      galleryItems = imagesResult.data || [];
+      statsById = new Map((statsResult.data || []).map(row => [row.image_id,row]));
       grid.replaceChildren();
-      if (!data || data.length === 0) {
-        const empty = document.createElement("p");
-        empty.textContent = "nothing here yet.";
-        grid.append(empty);
-        return;
-      }
-
-      for (const item of data) {
+      if (!galleryItems.length) { addText(grid,"p","nothing here yet."); return; }
+      for (const item of galleryItems) {
         const figure = document.createElement("figure");
-        const link = document.createElement("a");
-        const image = document.createElement("img");
-        const caption = document.createElement("figcaption");
-
-        link.href = imageUrl(item.object_path);
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        image.src = imageUrl(item.object_path);
-        image.alt = item.original_name || "Gallery image";
-        image.loading = "lazy";
-        image.decoding = "async";
-        caption.textContent = item.original_name || "image";
-
-        link.append(image);
-        figure.append(link, caption);
+        const open = document.createElement("a");
+        open.href = "?image=" + encodeURIComponent(item.id);
+        open.addEventListener("click", event => { event.preventDefault(); openItem(item); });
+        let preview;
+        if (isVideo(item.mime_type)) {
+          preview = document.createElement("video"); preview.muted = true; preview.preload = "metadata";
+          preview.src = mediaUrl(item.object_path); preview.playsInline = true;
+          preview.addEventListener("click", event => { event.preventDefault(); openItem(item); });
+        } else {
+          preview = document.createElement("img"); preview.src = mediaUrl(item.object_path);
+          preview.alt = item.original_name || "gallery image"; preview.loading = "lazy"; preview.decoding = "async";
+        }
+        preview.className = "media-thumb"; open.append(preview); figure.append(open);
+        addText(figure,"figcaption",item.original_name || "upload");
+        addText(figure,"div","uploaded by " + (item.uploader_name || "unknown visitor"),"uploader-label");
+        const stats = statsById.get(item.id) || {upvotes:0,downvotes:0,sobs:0,score:0};
+        const reactions = document.createElement("div"); reactions.className = "reaction-row";
+        for (const [type,label,count] of [
+          ["upvote","↑",stats.upvotes],["downvote","↓",stats.downvotes],["sob","sob",stats.sobs]
+        ]) {
+          const button = document.createElement("button"); button.type = "button";
+          button.textContent = label + " " + count;
+          button.addEventListener("click", () => sendReaction(item,type,button));
+          reactions.append(button);
+        }
+        figure.append(reactions);
         if (adminToken) {
-          const deleteButton = document.createElement("button");
-          deleteButton.type = "button";
-          deleteButton.textContent = "delete";
-          deleteButton.addEventListener("click", async () => {
-            if (!window.confirm("delete this image from the gallery?")) return;
-            deleteButton.disabled = true;
-            adminStatus.textContent = "deleting image…";
-            try {
-              await adminRequest({ action: "delete", id: item.id, token: adminToken });
-              adminStatus.textContent = "image deleted.";
-              await loadGallery();
-            } catch (error) {
-              adminStatus.textContent = error instanceof Error ? error.message : "could not delete image.";
-              if (error instanceof Error && error.message.includes("session expired")) {
-                adminToken = "";
-                sessionStorage.removeItem("galleryAdminToken");
-                updateAdminControls();
-                await loadGallery();
-              } else {
-                deleteButton.disabled = false;
-              }
-            }
+          const del = document.createElement("button"); del.type = "button"; del.textContent = "delete";
+          del.addEventListener("click", async () => {
+            if (!confirm("delete this upload?")) return;
+            del.disabled = true;
+            try { await adminApi({action:"delete",id:item.id}); adminStatus.textContent = "deleted."; await loadGallery(); }
+            catch (error) { adminStatus.textContent = error.message || "delete failed."; del.disabled = false; }
           });
-          figure.append(deleteButton);
+          figure.append(del);
         }
         grid.append(figure);
+      }
+      const requested = new URL(location.href).searchParams.get("image");
+      if (requested && !viewer.open) {
+        const item = galleryItems.find(entry => entry.id === requested);
+        if (item) openItem(item,false);
       }
     }
 
     async function uploadFile(file) {
-      if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
-        throw new Error("only jpeg, png, webp, and gif images are accepted.");
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error("file is larger than 5 MB.");
-      }
-      submitButton.disabled = true;
-      importButton.disabled = true;
-      status.textContent = "uploading…";
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 45000);
+      if (!MEDIA_TYPES.includes(file.type)) throw new Error("unsupported media type. use JPEG, PNG, WebP, GIF, MP4, WebM, Ogg, or QuickTime.");
+      if (file.size < 1 || file.size > MAX_BYTES) throw new Error("file must be between 1 byte and 5 MB.");
+      submitButton.disabled = true; importButton.disabled = true; status.textContent = "uploading…";
       try {
-        const body = new FormData();
-        body.append("file", file, file.name || "image");
-        const response = await fetch(UPLOAD_URL, {
-          method: "POST",
-          headers: { apikey: SUPABASE_KEY, ...(adminToken ? { "x-gallery-admin-token": adminToken } : {}) },
-          body,
-          signal: controller.signal
-        });
+        const body = new FormData(); body.append("file",file,file.name || "upload"); body.append("visitor_id",visitorId);
+        const response = await fetch(UPLOAD_URL,{method:"POST",headers:{apikey:SUPABASE_KEY,...(adminToken?{"x-gallery-admin-token":adminToken}:{})},body});
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          const detail = result.error || result.message || ("server returned HTTP " + response.status);
-          throw new Error(detail);
-        }
-        status.textContent = "uploaded.";
-        form.reset();
-        await loadGallery();
-      } catch (error) {
-        if (error && error.name === "AbortError") {
-          throw new Error("upload timed out after 45 seconds. the server may be unavailable; try again.");
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeout);
-        submitButton.disabled = false;
-        importButton.disabled = false;
-      }
+        if (!response.ok) throw new Error(result.error || "upload failed (HTTP " + response.status + ")");
+        status.textContent = "uploaded as " + (result.uploader_name || "anonymous visitor") + ".";
+        form.reset(); await loadGallery();
+      } finally { submitButton.disabled = false; importButton.disabled = false; }
     }
 
-    const importButton = document.getElementById("gallery-import");
-    const urlInput = document.getElementById("gallery-image-url");
-
-    adminLoginButton.addEventListener("click", () => {
-      adminLoginForm.hidden = !adminLoginForm.hidden;
-      if (!adminLoginForm.hidden) adminPassword.focus();
+    $("gallery-admin-login-button").addEventListener("click",() => {
+      const login = $("gallery-admin-login-form"); login.hidden = !login.hidden;
+      if (!login.hidden) $("gallery-admin-password").focus();
     });
-
-    adminLogoutButton.addEventListener("click", async () => {
-      adminToken = "";
-      sessionStorage.removeItem("galleryAdminToken");
-      adminStatus.textContent = "logged out.";
-      updateAdminControls();
-      await loadGallery();
+    $("gallery-admin-logout-button").addEventListener("click",() => {
+      adminToken = ""; sessionStorage.removeItem("galleryAdminToken");
+      adminStatus.textContent = "logged out."; updateAdminControls(); loadGallery();
     });
-
-    adminLoginForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const password = adminPassword.value;
-      adminStatus.textContent = "logging in…";
+    $("gallery-admin-login-form").addEventListener("submit",async event => {
+      event.preventDefault(); adminStatus.textContent = "logging in…";
       try {
-        const result = await adminRequest({ action: "login", password });
-        adminToken = result.token;
-        sessionStorage.setItem("galleryAdminToken", adminToken);
-        adminPassword.value = "";
-        adminStatus.textContent = "logged in. admin controls enabled.";
-        updateAdminControls();
-        await loadGallery();
-      } catch (error) {
-        adminStatus.textContent = error instanceof Error ? error.message : "login failed.";
-      }
+        const result = await api({action:"login",password:$("gallery-admin-password").value});
+        adminToken = result.token; sessionStorage.setItem("galleryAdminToken",adminToken);
+        $("gallery-admin-password").value = ""; updateAdminControls();
+        adminStatus.textContent = "logged in."; await loadGallery(); await loadAdminQueue();
+      } catch(error) { adminStatus.textContent = error.message || "login failed."; }
     });
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) {
-        status.textContent = "choose a file or import an image URL first.";
-        return;
-      }
+    async function loadAdminQueue() {
       try {
-        await uploadFile(file);
-      } catch (error) {
-        status.textContent = error instanceof Error ? error.message : "upload failed.";
-      }
+        const result = await adminApi({action:"admin-list"});
+        const container = $("gallery-admin-queue"); container.hidden = false; container.replaceChildren();
+        const table = document.createElement("table");
+        const head = document.createElement("tr");
+        for (const label of ["file","uploader","size","submitted","action"]) addText(head,"th",label);
+        table.append(head);
+        for (const item of result.images || []) {
+          const tr = document.createElement("tr");
+          addText(tr,"td",item.original_name || item.object_path);
+          addText(tr,"td",item.uploader_name || "legacy upload");
+          addText(tr,"td",Math.ceil((item.size_bytes || 0)/1024) + " KB");
+          addText(tr,"td",item.created_at ? new Date(item.created_at).toLocaleString() : "unknown");
+          const cell = document.createElement("td"), button = document.createElement("button");
+          button.type = "button"; button.textContent = "delete";
+          button.addEventListener("click",async () => {
+            if (!confirm("delete this upload?")) return;
+            button.disabled = true;
+            try { await adminApi({action:"delete",id:item.id}); adminStatus.textContent = "deleted."; await loadAdminQueue(); await loadGallery(); }
+            catch(error) { adminStatus.textContent = error.message || "delete failed."; button.disabled = false; }
+          });
+          cell.append(button); tr.append(cell); table.append(tr);
+        }
+        container.append(table);
+      } catch(error) { adminStatus.textContent = error.message || "could not load moderation queue."; }
+    }
+    form.addEventListener("submit",async event => {
+      event.preventDefault(); const file = fileInput.files?.[0];
+      if (!file) { status.textContent = "choose a file first."; return; }
+      try { await uploadFile(file); } catch(error) { status.textContent = error.message || "upload failed."; }
     });
-
-    importButton.addEventListener("click", async () => {
-      const rawUrl = urlInput.value.trim();
-      if (!rawUrl) {
-        status.textContent = "enter an image URL first.";
-        return;
-      }
+    importButton.addEventListener("click",async () => {
       let parsed;
+      try { parsed = new URL($("gallery-image-url").value.trim()); }
+      catch { status.textContent = "enter a valid image URL."; return; }
+      if (!["http:","https:"].includes(parsed.protocol)) { status.textContent = "only HTTP and HTTPS URLs are accepted."; return; }
+      importButton.disabled = true; status.textContent = "fetching image…";
       try {
-        parsed = new URL(rawUrl);
-      } catch {
-        status.textContent = "that URL is not valid.";
-        return;
-      }
-      if (!["https:", "http:"].includes(parsed.protocol)) {
-        status.textContent = "only http and https image URLs are supported.";
-        return;
-      }
-      importButton.disabled = true;
-      status.textContent = "fetching image from URL…";
-      try {
-        const response = await fetch(parsed.href, { mode: "cors" });
+        const response = await fetch(parsed.href,{mode:"cors"});
         if (!response.ok) throw new Error("image source returned HTTP " + response.status);
         const blob = await response.blob();
-        const type = blob.type.split(";")[0].toLowerCase();
-        if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(type)) {
-          throw new Error("URL must return a JPEG, PNG, WebP, or GIF image.");
-        }
-        if (blob.size > 5 * 1024 * 1024) throw new Error("image is larger than 5 MB.");
-        const lastPart = decodeURIComponent(parsed.pathname.split("/").pop() || "imported-image");
-        const safeName = /\.(jpe?g|png|webp|gif)$/i.test(lastPart) ? lastPart : "imported-image." + (type === "image/jpeg" ? "jpg" : type === "image/gif" ? "gif" : type.split("/")[1]);
-        const file = new File([blob], safeName, { type });
-        await uploadFile(file);
-        urlInput.value = "";
-      } catch (error) {
-        status.textContent = error instanceof Error
-          ? (error.message.includes("Failed to fetch") ? "could not fetch that URL (the image host may block browser imports with CORS)." : error.message)
-          : "could not import image URL.";
-        importButton.disabled = false;
-      }
+        if (!IMAGE_TYPES.includes(blob.type.split(";")[0].toLowerCase())) throw new Error("URL must return a supported image.");
+        if (blob.size > MAX_BYTES) throw new Error("image exceeds the 5 MB limit.");
+        const ext = blob.type === "image/jpeg" ? "jpg" : blob.type.split("/")[1];
+        const name = decodeURIComponent(parsed.pathname.split("/").pop() || "imported-image." + ext);
+        await uploadFile(new File([blob],name,{type:blob.type}));
+        $("gallery-image-url").value = "";
+      } catch(error) {
+        status.textContent = error.message?.includes("Failed to fetch") ? "that host blocks browser imports (CORS)." : (error.message || "could not import URL.");
+      } finally { importButton.disabled = false; }
     });
 
     updateAdminControls();
     await loadGallery();
-    supabase
-      .channel("gallery-live")
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "gallery_images"
-      }, () => loadGallery())
-      .subscribe();
+    if (adminToken) await loadAdminQueue();
+    supabase.channel("gallery-live").on("postgres_changes",{event:"*",schema:"public",table:"gallery_images"},loadGallery).subscribe();
   </script>
 </body>
 </html>
