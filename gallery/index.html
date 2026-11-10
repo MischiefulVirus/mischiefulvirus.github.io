@@ -20,6 +20,11 @@
     #gallery-admin-login-form input { width:10rem; }
     #gallery-admin-status { flex:1 1 100%; margin:0; min-height:0; }
     #gallery-admin-queue { flex:1 1 100%; width:100%; }
+    #gallery-webhook-panel { flex:1 1 100%; min-width:0; }
+    #gallery-webhook-form { display:grid; gap:6px; }
+    #gallery-webhook-form label { font-size:.78em; }
+    #gallery-webhook-form textarea { box-sizing:border-box; width:100%; max-width:100%; min-height:5em; resize:vertical; color:#f00; background:#080000; border:1px solid #600; padding:.4em; font:inherit; }
+    #gallery-webhook-status { margin:4px 0 0; font-size:.75em; overflow-wrap:anywhere; }
     #gallery-upload-form input, #gallery-admin input { max-width:100%; color:#f00; background:#080000; border:1px solid #600; padding:.35em; }
     #gallery-upload-form button, #gallery-admin button, .reaction-row button, #gallery-viewer button {
       color:#f00; background:#080000; border:1px solid #800; padding:.35em .65em; font:inherit; cursor:pointer;
@@ -75,6 +80,14 @@
           <input id="gallery-admin-password" type="password" autocomplete="current-password" required>
           <button type="submit">log in</button>
         </form>
+        <div id="gallery-webhook-panel" hidden>
+          <form id="gallery-webhook-form">
+            <label for="gallery-webhook-message">webhook message</label>
+            <textarea id="gallery-webhook-message" maxlength="2000" rows="4" placeholder="write a message…" required></textarea>
+            <button id="gallery-webhook-send" type="submit">send to discord</button>
+          </form>
+          <p id="gallery-webhook-status" role="status" aria-live="polite"></p>
+        </div>
         <p id="gallery-admin-status" role="status" aria-live="polite"></p>
       </section>
     </aside>
@@ -217,6 +230,7 @@
     function updateAdminControls() {
       $("gallery-admin-login-button").hidden = Boolean(adminToken);
       $("gallery-admin-logout-button").hidden = !adminToken;
+      $("gallery-webhook-panel").hidden = !adminToken;
       if (!adminToken) { $("gallery-admin-login-form").hidden = true; $("gallery-admin-queue").hidden = true; }
     }
     function addText(parent, tag, text, className) {
@@ -414,6 +428,21 @@
         $("gallery-admin-password").value = ""; updateAdminControls();
         adminStatus.textContent = "logged in."; await loadGallery(); await loadAdminQueue();
       } catch(error) { adminStatus.textContent = error.message || "login failed."; }
+    });
+    $("gallery-webhook-form").addEventListener("submit",async event => {
+      event.preventDefault();
+      const button = $("gallery-webhook-send");
+      const message = $("gallery-webhook-message").value.trim();
+      const feedback = $("gallery-webhook-status");
+      if (!message) { feedback.textContent = "write a message first."; return; }
+      button.disabled = true; feedback.textContent = "sending…";
+      try {
+        await adminApi({action:"webhook-message",message});
+        $("gallery-webhook-message").value = "";
+        feedback.textContent = "message sent.";
+      } catch(error) {
+        feedback.textContent = error.message || "could not send message.";
+      } finally { button.disabled = false; }
     });
     async function loadAdminQueue() {
       try {
