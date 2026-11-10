@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>all pages</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    #page-index { max-width: 760px; }
+    #page-index .index-intro { color: #999; margin-bottom: 2rem; }
+    #page-index .page-list { list-style: none; padding: 0; margin: 0; }
+    #page-index .page-list li { border-bottom: 1px solid #292020; padding: .65rem 0; }
+    #page-index .page-list a { color: #e33; text-decoration: none; }
+    #page-index .page-list a:hover { color: #fff; text-decoration: underline; }
+    #page-index .page-path { color: #777; font-size: .85em; margin-left: .5em; }
+    #page-index h2 { color: #aaa; font-size: 1rem; font-weight: normal; margin: 1.8rem 0 .5rem; }
+    #page-index .count { color: #777; font-size: .85rem; }
+    #page-index #page-filter { box-sizing: border-box; width: 100%; max-width: 420px; background: #080808; color: #ddd; border: 1px solid #4a2020; padding: .65rem; margin: .5rem 0 1rem; font: inherit; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <main id="page-index">
+      <section>
+        <h1>all pages.</h1>
+        <p class="index-intro">an index of the pages currently present in this website's repository. some pages may be unlisted elsewhere.</p>
+        <input id="page-filter" type="search" placeholder="filter pages..." autocomplete="off" aria-label="Filter pages">
+        <p class="count" id="page-count">12 pages</p>
+
+        <h2>root</h2>
+        <ul class="page-list">
+          <li><a href="./index.html">home</a><span class="page-path">/</span></li>
+          <li><a href="./b.html">b</a><span class="page-path">/b.html</span></li>
+          <li><a href="./chat.html">chat</a><span class="page-path">/chat.html</span></li>
+          <li><a href="./gallery.html">gallery</a><span class="page-path">/gallery.html</span></li>
+          <li><a href="./index%20(5).html">index (5)</a><span class="page-path">/index (5).html</span></li>
+          <li><a href="./ki.html">ki</a><span class="page-path">/ki.html</span></li>
+          <li><a href="./leaderboard.html">leaderboard</a><span class="page-path">/leaderboard.html</span></li>
+          <li><a href="./m.html">m</a><span class="page-path">/m.html</span></li>
+          <li><a href="./music.html">music</a><span class="page-path">/music.html</span></li>
+          <li><a href="./musicarchive2.html">musicarchive2</a><span class="page-path">/musicarchive2.html</span></li>
+          <li><a href="./not_found.html">not_found</a><span class="page-path">/not_found.html</span></li>
+          <li><a href="./all.html">all</a><span class="page-path">/all.html</span></li>
+        </ul>
+
+        <h2>gallery</h2>
+        <ul class="page-list">
+          <li><a href="./gallery/">gallery index</a><span class="page-path">/gallery/</span></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <script>
+    const filter = document.getElementById('page-filter');
+    const items = [...document.querySelectorAll('.page-list li')];
+    const count = document.getElementById('page-count');
+    filter.addEventListener('input', () => {
+      const query = filter.value.trim().toLowerCase();
+      let visible = 0;
+      for (const item of items) {
+        const match = item.textContent.toLowerCase().includes(query);
+        item.hidden = !match;
+        if (match) visible++;
+      }
+      count.textContent = visible + ' of ' + items.length + ' pages';
+      for (const heading of document.querySelectorAll('#page-index h2')) {
+        const list = heading.nextElementSibling;
+        heading.hidden = ![...list.children].some(item => !item.hidden);
+      }
+    });
+  </script>
+</body>
+</html>
