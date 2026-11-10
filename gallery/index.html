@@ -69,6 +69,12 @@
             <button id="gallery-import" type="button">import image URL</button>
           </div>
           <div class="gallery-upload-controls">
+            <label for="gallery-anonymous" style="display:flex;align-items:center;gap:7px;margin:0;">
+              <input id="gallery-anonymous" type="checkbox">
+              upload anonymously (your generated username is only visible to admins)
+            </label>
+          </div>
+          <div class="gallery-upload-controls">
             <input id="gallery-cooldown-password" type="password" autocomplete="current-password" placeholder="no-cooldown password" aria-label="No-cooldown password">
             <button id="gallery-cooldown-login" type="button">unlock no cooldown</button>
             <button id="gallery-cooldown-logout" type="button" hidden>lock cooldown</button>
@@ -279,7 +285,7 @@
 
     async function loadGallery() {
       const [imagesResult, statsResult] = await Promise.all([
-        supabase.from("gallery_images").select("id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name").order("created_at",{ascending:false}).limit(100),
+        supabase.from("gallery_images").select("id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name,is_anonymous").order("created_at",{ascending:false}).limit(100),
         supabase.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs")
       ]);
       if (imagesResult.error) { grid.textContent = "could not load gallery."; console.error(imagesResult.error); return; }
@@ -303,7 +309,7 @@
         }
         preview.className = "media-thumb"; open.append(preview); figure.append(open);
         addText(figure,"figcaption",item.original_name || "upload");
-        addText(figure,"div","uploaded by " + (item.uploader_name || "unknown visitor"),"uploader-label");
+        addText(figure,"div",item.is_anonymous ? "uploaded anonymously" : "uploaded by " + (item.uploader_name || "unknown visitor"),"uploader-label");
         const stats = statsById.get(item.id) || {upvotes:0,downvotes:0,sobs:0,score:0};
         const reactions = document.createElement("div"); reactions.className = "reaction-row";
         for (const [type,label,count] of [
@@ -340,7 +346,7 @@
       if (file.size < 1 || file.size > maxBytes) throw new Error(isVideo(file.type) ? "video files must be between 1 byte and 10 MB." : "image files must be between 1 byte and 5 MB.");
       submitButton.disabled = true; importButton.disabled = true; status.textContent = "uploading…";
       try {
-        const body = new FormData(); body.append("file",file,file.name || "upload"); body.append("visitor_id",visitorId);
+        const body = new FormData(); body.append("file",file,file.name || "upload"); body.append("visitor_id",visitorId); body.append("anonymous",String($("gallery-anonymous").checked));
         const response = await fetch(UPLOAD_URL,{method:"POST",headers:{
           apikey:SUPABASE_KEY,
           ...(adminToken?{"x-gallery-admin-token":adminToken}:{}),
