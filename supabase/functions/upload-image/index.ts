@@ -5,6 +5,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const RATE_LIMIT_PEPPER = Deno.env.get("RATE_LIMIT_PEPPER") ?? "";
 const DISCORD_WEBHOOK_URL = Deno.env.get("DISCORD_WEBHOOK_URL") ?? "";
 const ADMIN_PASSWORD = Deno.env.get("GALLERY_ADMIN_PASSWORD") ?? "";
+const UPLOAD_COOLDOWN_PASSWORD = Deno.env.get("UPLOAD_COOLDOWN_PASSWORD") ?? "";
 const ADMIN_SESSION_SECRET = Deno.env.get("GALLERY_ADMIN_SESSION_SECRET") ?? "";
 const ALLOWED_ORIGINS = new Set(["https://01.nya.je", "https://mischiefulvirus.github.io"]);
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -16,7 +17,7 @@ function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-gallery-admin-token",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-gallery-admin-token, x-gallery-cooldown-token",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
@@ -134,8 +135,9 @@ async function validAdminToken(token: string) {
     return false;
   }
 }
-async function passwordMatches(candidate: string) {
-  const [a, b] = await Promise.all([sha256(candidate), sha256(ADMIN_PASSWORD)]);
+async function passwordMatches(candidate: string, expected: string) {
+  if (!candidate || !expected) return false;
+  const [a, b] = await Promise.all([sha256(candidate), sha256(expected)]);
   let difference = 0;
   for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return difference === 0;
@@ -168,7 +170,7 @@ serve(async (req) => {
         return reply({ error: "admin login is not configured" }, 503, headers);
       }
       const password = typeof body.password === "string" ? body.password : "";
-      if (password && password.length <= 256 && await passwordMatches(password)) {
+      if (password && password.length <= 256 && await passwordMatches(password, ADMIN_PASSWORD)) {
         return reply({ success: true, token: await createAdminToken(), expires_in: 3600 }, 200, headers);
       }
       const loginIp = req.headers.get("cf-connecting-ip") ||
@@ -184,6 +186,31 @@ serve(async (req) => {
         return reply({ error: "too many login attempts; wait 15 minutes and try again" }, 429, headers);
       }
       return reply({ error: "incorrect password" }, 401, headers);
+    }
+
+    if (body.action === "cooldown-login") {
+      if (!UPLOAD_COOLDOWN_PASSWORD || ADMIN_SESSION_SECRET.length < 32) {
+        return reply({ error: "upload cooldown password is not configured" }, 503, headers);
+      }
+      const loginIp = req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const loginIpHash = await sha256(ADMIN_SESSION_SECRET + ":cooldown-login:" + loginIp);
+      const loginLimit = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_gallery_admin_login_slot", {
+        method: "POST", headers: restHeaders(),
+        body: JSON.stringify({ p_ip_hash: loginIpHash })
+      });
+      if (!loginLimit.ok) return reply({ error: "password protection is unavailable" }, 503, headers);
+      const loginAllowed = await loginLimit.json().catch(() => false);
+      if (!(loginAllowed === true || (Array.isArray(loginAllowed) && loginAllowed[0] === true))) {
+        return reply({ error: "too many password attempts; wait 15 minutes and try again" }, 429, headers);
+      }
+      const password = typeof body.password === "string" ? body.password : "";
+      if (!(await passwordMatches(password, UPLOAD_COOLDOWN_PASSWORD))) {
+        return reply({ error: "incorrect cooldown password" }, 401, headers);
+      }
+      const payload = encoder.encode(JSON.stringify({ role: "upload-unlimited", exp: Date.now() + 12 * 60 * 60 * 1000 }));
+      const signature = new Uint8Array(await crypto.subtle.sign("HMAC", await sessionKey(), payload));
+      return reply({ success: true, token: b64url(payload) + "." + b64url(signature), expires_in: 43200 }, 200, headers);
     }
 
     if (body.action === "admin-list") {
@@ -296,8 +323,25 @@ serve(async (req) => {
   const authHeaders = restHeaders();
   const adminToken = req.headers.get("x-gallery-admin-token") || "";
   const isAdmin = Boolean(ADMIN_SESSION_SECRET) && await validAdminToken(adminToken);
+  const cooldownToken = req.headers.get("x-gallery-cooldown-token") || "";
+  let hasUnlimitedUploads = false;
+  if (ADMIN_SESSION_SECRET && cooldownToken) {
+    try {
+      const parts = cooldownToken.split(".");
+      if (parts.length === 2) {
+        const payload = fromB64url(parts[0]);
+        const signature = fromB64url(parts[1]);
+        const valid = await crypto.subtle.verify("HMAC", await sessionKey(), signature, payload);
+        if (valid) {
+          const claims = JSON.parse(new TextDecoder().decode(payload));
+          hasUnlimitedUploads = claims.role === "upload-unlimited" &&
+            Number.isFinite(claims.exp) && claims.exp > Date.now();
+        }
+      }
+    } catch { hasUnlimitedUploads = false; }
+  }
 
-  if (!isAdmin) {
+  if (!isAdmin && !hasUnlimitedUploads) {
     const ipHash = await sha256(RATE_LIMIT_PEPPER + ":" + ip);
     const claim = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_gallery_upload_slot", {
       method: "POST", headers: authHeaders, body: JSON.stringify({ p_ip_hash: ipHash })
