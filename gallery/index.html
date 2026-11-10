@@ -27,6 +27,14 @@
     #gallery-viewer { width:min(94vw,1100px); max-width:none; max-height:94vh; padding:12px; border:1px solid #900; background:#080808; color:#f00; }
     #gallery-viewer::backdrop { background:rgb(0 0 0 / 90%); }
     #gallery-viewer [hidden] { display:none !important; }
+    #gallery-comments { border-top:1px solid #500; margin-top:12px; padding-top:10px; }
+    #gallery-comments form { display:grid; gap:7px; }
+    #gallery-comments input, #gallery-comments textarea { color:#f00; background:#080000; border:1px solid #600; padding:7px; font:inherit; width:100%; box-sizing:border-box; }
+    #gallery-comments textarea { min-height:72px; resize:vertical; }
+    #gallery-comments button { color:#f00; background:#080000; border:1px solid #800; padding:.35em .65em; font:inherit; cursor:pointer; }
+    #gallery-comment-list { display:grid; gap:8px; margin-top:12px; max-height:30vh; overflow:auto; }
+    .gallery-comment { border:1px solid #300; padding:8px; overflow-wrap:anywhere; }
+    .gallery-comment-meta { color:#b66; font-size:.72em; margin-bottom:4px; }
     #gallery-viewer img, #gallery-viewer video { display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; object-fit:contain; }
     .viewer-top { display:flex; justify-content:space-between; gap:1em; align-items:center; margin-bottom:8px; }
     #gallery-admin-queue { margin-top:1em; overflow-x:auto; }
@@ -86,6 +94,16 @@
     <div class="viewer-top"><span id="gallery-viewer-caption"></span><button id="gallery-viewer-close" type="button">close</button></div>
     <img id="gallery-viewer-image" alt="" hidden>
     <video id="gallery-viewer-video" controls playsinline hidden></video>
+    <section id="gallery-comments" aria-label="comments">
+      <h3>comments</h3>
+      <form id="gallery-comment-form">
+        <input id="gallery-comment-name" type="text" maxlength="24" placeholder="username (optional; anonymous by default)" aria-label="Optional comment username">
+        <textarea id="gallery-comment-body" maxlength="500" placeholder="write a comment…" required aria-label="Comment"></textarea>
+        <div><button id="gallery-comment-submit" type="submit">post comment</button></div>
+        <p id="gallery-comment-status" role="status" aria-live="polite"></p>
+      </form>
+      <div id="gallery-comment-list" aria-live="polite"></div>
+    </section>
   </dialog>
 
   <script type="module">
@@ -99,6 +117,7 @@
     const status = $("gallery-status"), submitButton = $("gallery-submit"), importButton = $("gallery-import");
     const viewer = $("gallery-viewer"), viewerImage = $("gallery-viewer-image"), viewerVideo = $("gallery-viewer-video");
     const adminStatus = $("gallery-admin-status");
+    let activeCommentImageId = "";
     const MEDIA_TYPES = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/ogg","video/quicktime"];
     const IMAGE_TYPES = MEDIA_TYPES.filter(type => type.startsWith("image/"));
     const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -128,7 +147,9 @@
         viewerImage.src = url; viewerImage.alt = item.original_name || "gallery image";
         viewerImage.hidden = false; viewerVideo.hidden = true;
       }
+      activeCommentImageId = item.id;
       if (!viewer.open) viewer.showModal();
+      loadComments(item.id);
       if (updateUrl) {
         const next = new URL(location.href); next.searchParams.set("image", item.id);
         history.pushState({ galleryImage:item.id }, "", next);
@@ -178,6 +199,45 @@
       if (className) node.className = className;
       parent.append(node); return node;
     }
+
+    async function loadComments(imageId) {
+      const list = $("gallery-comment-list");
+      list.textContent = "loading comments…";
+      try {
+        const result = await api({ action:"comments-list", image_id:imageId });
+        if (activeCommentImageId !== imageId) return;
+        list.replaceChildren();
+        if (!result.comments?.length) { addText(list,"p","no comments yet."); return; }
+        for (const comment of result.comments) {
+          const article = document.createElement("article"); article.className = "gallery-comment";
+          const meta = document.createElement("div"); meta.className = "gallery-comment-meta";
+          const who = comment.display_name || "anonymous";
+          const reaction = comment.vote === 1 ? " · ↑ upvoted" : comment.vote === -1 ? " · ↓ downvoted" : "";
+          meta.textContent = who + reaction + " · " + new Date(comment.created_at).toLocaleString();
+          article.append(meta);
+          addText(article,"div",comment.body);
+          list.append(article);
+        }
+      } catch(error) { list.textContent = error.message || "could not load comments."; }
+    }
+    $("gallery-comment-form").addEventListener("submit",async event => {
+      event.preventDefault();
+      const imageId = activeCommentImageId;
+      if (!imageId) return;
+      const button = $("gallery-comment-submit"), message = $("gallery-comment-status");
+      button.disabled = true; message.textContent = "posting…";
+      try {
+        await api({
+          action:"comment-create", image_id:imageId, visitor_id:visitorId,
+          display_name:$("gallery-comment-name").value,
+          body:$("gallery-comment-body").value
+        });
+        $("gallery-comment-body").value = "";
+        message.textContent = "comment posted.";
+        await loadComments(imageId);
+      } catch(error) { message.textContent = error.message || "could not post comment."; }
+      finally { button.disabled = false; }
+    });
 
     async function sendReaction(item, reaction, button) {
       button.disabled = true;
