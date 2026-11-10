@@ -224,6 +224,61 @@ serve(async (req) => {
       return reply({ success: true, images: await listing.json().catch(() => []) }, 200, headers);
     }
 
+    if (body.action === "comments-list" || body.action === "comment-create") {
+      const imageId = typeof body.image_id === "string" ? body.image_id : "";
+      if (!(await validImageId(imageId))) return reply({ error: "invalid image id" }, 400, headers);
+      const base = SUPABASE_URL + "/rest/v1/";
+      if (body.action === "comments-list") {
+        const commentsResponse = await fetch(base + "gallery_comments?image_id=eq." + imageId +
+          "&select=id,display_name,body,created_at,visitor_hash&order=created_at.asc&limit=200", { headers: restHeaders() });
+        if (!commentsResponse.ok) return reply({ error: "could not load comments" }, 502, headers);
+        const comments = await commentsResponse.json().catch(() => []);
+        const votesResponse = await fetch(base + "gallery_votes?image_id=eq." + imageId +
+          "&select=visitor_hash,vote", { headers: restHeaders() });
+        if (!votesResponse.ok) return reply({ error: "could not load comment reactions" }, 502, headers);
+        const votes = await votesResponse.json().catch(() => []);
+        const voteByVisitor = new Map((Array.isArray(votes) ? votes : []).map((row: {visitor_hash:string;vote:number}) => [row.visitor_hash,row.vote]));
+        return reply({ success: true, comments: (Array.isArray(comments) ? comments : []).map((row: Record<string, unknown>) => ({
+          id: row.id, display_name: row.display_name, body: row.body, created_at: row.created_at,
+          vote: voteByVisitor.get(String(row.visitor_hash)) || 0
+        })) }, 200, headers);
+      }
+      const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+      let visitor;
+      try { visitor = await ensureVisitor(visitorId); }
+      catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+      const content = typeof body.body === "string" ? body.body.trim() : "";
+      const requestedName = typeof body.display_name === "string" ? body.display_name.trim() : "";
+      const displayName = requestedName.replace(/[<>\\r\\n\\t]/g, "").replace(/\\s+/g, " ").slice(0, 24);
+      if (!content || content.length > 500) return reply({ error: "comments must be between 1 and 500 characters" }, 400, headers);
+      if (requestedName && !displayName) return reply({ error: "enter a valid username" }, 400, headers);
+      const recent = await fetch(base + "gallery_comments?image_id=eq." + imageId +
+        "&visitor_hash=eq." + visitor.visitorHash + "&select=created_at&order=created_at.desc&limit=1", { headers: restHeaders() });
+      if (!recent.ok) return reply({ error: "could not check comment cooldown" }, 502, headers);
+      const recentRows = await recent.json().catch(() => []);
+      if (Array.isArray(recentRows) && recentRows[0]?.created_at &&
+          Date.now() - new Date(recentRows[0].created_at).getTime() < 30000) {
+        return reply({ error: "please wait 30 seconds before commenting again" }, 429, headers);
+      }
+      const voteResponse = await fetch(base + "gallery_votes?image_id=eq." + imageId +
+        "&visitor_hash=eq." + visitor.visitorHash + "&select=vote", { headers: restHeaders() });
+      if (!voteResponse.ok) return reply({ error: "could not check your reaction" }, 502, headers);
+      const voteRows = await voteResponse.json().catch(() => []);
+      const vote = Array.isArray(voteRows) && voteRows[0] ? Number(voteRows[0].vote) : 0;
+      const inserted = await fetch(base + "gallery_comments", {
+        method: "POST", headers: { ...restHeaders(), "Prefer": "return=representation" },
+        body: JSON.stringify({
+          image_id: imageId, visitor_hash: visitor.visitorHash,
+          display_name: displayName || null, body: content
+        })
+      });
+      if (!inserted.ok) return reply({ error: "could not save comment" }, 502, headers);
+      const rows = await inserted.json().catch(() => []);
+      return reply({ success: true, comment: {
+        ...(Array.isArray(rows) ? rows[0] : {}), display_name: displayName || "anonymous", vote
+      } }, 201, headers);
+    }
+
     if (body.action === "react") {
       const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
       const imageId = typeof body.image_id === "string" ? body.image_id : "";
