@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>gallery</title>
   <link href="./style.css" rel="stylesheet">
+  <style>
+    #gallery-viewer { width: min(94vw, 1100px); max-width: none; max-height: 92vh; padding: 1rem; border: 1px solid #8b0000; background: #080808; color: #eee; }
+    #gallery-viewer::backdrop { background: rgb(0 0 0 / 88%); }
+    #gallery-viewer img { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; margin: 0 auto; object-fit: contain; }
+    #gallery-viewer .viewer-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .75rem; }
+    #gallery-viewer button { color: #eee; background: #250000; border: 1px solid #8b0000; padding: .35rem .7rem; cursor: pointer; }
+  </style>
 </head>
 <body>
   <a href="#content" id="skip-to-content-link">Skip to content</a>
@@ -51,6 +58,14 @@
     <footer></footer>
   </div>
 
+  <dialog id="gallery-viewer">
+    <div class="viewer-top">
+      <span id="gallery-viewer-caption"></span>
+      <button id="gallery-viewer-close" type="button">close</button>
+    </div>
+    <img id="gallery-viewer-image" alt="">
+  </dialog>
+
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -64,6 +79,47 @@
     const fileInput = document.getElementById("gallery-file");
     const submitButton = document.getElementById("gallery-submit");
     const status = document.getElementById("gallery-status");
+    const viewer = document.getElementById("gallery-viewer");
+    const viewerImage = document.getElementById("gallery-viewer-image");
+    const viewerCaption = document.getElementById("gallery-viewer-caption");
+    let galleryItems = [];
+
+    function openImage(item, updateUrl = true) {
+      if (!item) return;
+      viewerImage.src = imageUrl(item.object_path);
+      viewerImage.alt = item.original_name || "Gallery image";
+      viewerCaption.textContent = item.original_name || "image";
+      if (!viewer.open) viewer.showModal();
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("image", item.id);
+        history.pushState({ galleryImage: item.id }, "", url);
+      }
+    }
+
+    function closeViewer(updateUrl = true) {
+      if (viewer.open) viewer.close();
+      viewerImage.removeAttribute("src");
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("image");
+        history.replaceState({}, "", url);
+      }
+    }
+
+    document.getElementById("gallery-viewer-close").addEventListener("click", () => closeViewer());
+    viewer.addEventListener("click", (event) => {
+      if (event.target === viewer) closeViewer();
+    });
+    viewer.addEventListener("close", () => {
+      viewerImage.removeAttribute("src");
+    });
+    window.addEventListener("popstate", () => {
+      const id = new URL(window.location.href).searchParams.get("image");
+      const item = galleryItems.find(entry => String(entry.id) === id);
+      if (item) openImage(item, false);
+      else closeViewer(false);
+    });
 
     function imageUrl(path) {
       return SUPABASE_URL + "/storage/v1/object/public/gallery/" +
@@ -83,6 +139,7 @@
         return;
       }
 
+      galleryItems = data || [];
       grid.replaceChildren();
       if (!data || data.length === 0) {
         const empty = document.createElement("p");
@@ -97,9 +154,11 @@
         const image = document.createElement("img");
         const caption = document.createElement("figcaption");
 
-        link.href = imageUrl(item.object_path);
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
+        link.href = "?image=" + encodeURIComponent(item.id);
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          openImage(item);
+        });
         image.src = imageUrl(item.object_path);
         image.alt = item.original_name || "Gallery image";
         image.loading = "lazy";
@@ -109,6 +168,12 @@
         link.append(image);
         figure.append(link, caption);
         grid.append(figure);
+      }
+
+      const requestedId = new URL(window.location.href).searchParams.get("image");
+      if (requestedId) {
+        const requestedImage = galleryItems.find(entry => String(entry.id) === requestedId);
+        if (requestedImage) openImage(requestedImage, false);
       }
     }
 
