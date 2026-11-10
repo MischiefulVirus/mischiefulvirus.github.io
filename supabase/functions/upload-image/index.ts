@@ -233,15 +233,78 @@ serve(async (req) => {
           "&select=id,display_name,body,created_at,visitor_hash&order=created_at.asc&limit=200", { headers: restHeaders() });
         if (!commentsResponse.ok) return reply({ error: "could not load comments" }, 502, headers);
         const comments = await commentsResponse.json().catch(() => []);
-        const votesResponse = await fetch(base + "gallery_votes?image_id=eq." + imageId +
+        const commentIds = (Array.isArray(comments) ? comments : []).map((row: {id:string}) => row.id);
+        let commentVotes: Array<{comment_id:string;visitor_hash:string;vote:number}> = [];
+        if (commentIds.length) {
+          const ids = commentIds.map(id => encodeURIComponent(id)).join(",");
+          const votesResponse = await fetch(base + "gallery_comment_votes?comment_id=in.(" + ids + ")&select=comment_id,visitor_hash,vote", { headers: restHeaders() });
+          if (!votesResponse.ok) return reply({ error: "could not load comment reactions" }, 502, headers);
+          commentVotes = await votesResponse.json().catch(() => []);
+        }
+        const counts = new Map<string,{upvotes:number;downvotes:number;myVote:number}>();
+        for (const row of commentVotes) {
+          const entry = counts.get(row.comment_id) || {upvotes:0,downvotes:0,myVote:0};
+          if (row.vote === 1) entry.upvotes++;
+          if (row.vote === -1) entry.downvotes++;
+          counts.set(row.comment_id,entry);
+        }
+        const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+        let ownHash = "";
+        if (visitorId) {
+          try { ownHash = (await ensureVisitor(visitorId)).visitorHash; } catch { ownHash = ""; }
+        }
+        for (const row of commentVotes) {
+          if (row.visitor_hash === ownHash) {
+            const entry = counts.get(row.comment_id);
+            if (entry) entry.myVote = row.vote;
+          }
+        }
+        const photoVotesResponse = await fetch(base + "gallery_votes?image_id=eq." + imageId +
           "&select=visitor_hash,vote", { headers: restHeaders() });
-        if (!votesResponse.ok) return reply({ error: "could not load comment reactions" }, 502, headers);
-        const votes = await votesResponse.json().catch(() => []);
-        const voteByVisitor = new Map((Array.isArray(votes) ? votes : []).map((row: {visitor_hash:string;vote:number}) => [row.visitor_hash,row.vote]));
-        return reply({ success: true, comments: (Array.isArray(comments) ? comments : []).map((row: Record<string, unknown>) => ({
-          id: row.id, display_name: row.display_name, body: row.body, created_at: row.created_at,
-          vote: voteByVisitor.get(String(row.visitor_hash)) || 0
-        })) }, 200, headers);
+        if (!photoVotesResponse.ok) return reply({ error: "could not load photo reactions" }, 502, headers);
+        const photoVotes = await photoVotesResponse.json().catch(() => []);
+        const photoVoteByVisitor = new Map((Array.isArray(photoVotes) ? photoVotes : []).map((row: {visitor_hash:string;vote:number}) => [row.visitor_hash,row.vote]));
+        return reply({ success: true, comments: (Array.isArray(comments) ? comments : []).map((row: Record<string, unknown>) => {
+          const reactions = counts.get(String(row.id)) || {upvotes:0,downvotes:0,myVote:0};
+          return {
+            id: row.id, display_name: row.display_name, body: row.body, created_at: row.created_at,
+            vote: photoVoteByVisitor.get(String(row.visitor_hash)) || 0,
+            upvotes: reactions.upvotes, downvotes: reactions.downvotes, myVote: reactions.myVote
+          };
+        }) }, 200, headers);
+      }
+      if (body.action === "comment-react") {
+        const commentId = typeof body.comment_id === "string" ? body.comment_id : "";
+        const reaction = body.reaction;
+        const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commentId) ||
+            !["upvote","downvote"].includes(String(reaction))) {
+          return reply({ error: "invalid comment reaction" }, 400, headers);
+        }
+        let visitor;
+        try { visitor = await ensureVisitor(visitorId); }
+        catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+        const target = await fetch(base + "gallery_comments?id=eq." + commentId + "&image_id=eq." + imageId + "&select=id", { headers: restHeaders() });
+        if (!target.ok) return reply({ error: "could not verify comment" }, 502, headers);
+        const targetRows = await target.json().catch(() => []);
+        if (!Array.isArray(targetRows) || !targetRows.length) return reply({ error: "comment not found" }, 404, headers);
+        const vote = reaction === "upvote" ? 1 : -1;
+        const existingResponse = await fetch(base + "gallery_comment_votes?comment_id=eq." + commentId +
+          "&visitor_hash=eq." + visitor.visitorHash + "&select=vote", { headers: restHeaders() });
+        if (!existingResponse.ok) return reply({ error: "could not check your comment vote" }, 502, headers);
+        const existingRows = await existingResponse.json().catch(() => []);
+        if (Array.isArray(existingRows) && existingRows[0]?.vote === vote) {
+          const removed = await fetch(base + "gallery_comment_votes?comment_id=eq." + commentId +
+            "&visitor_hash=eq." + visitor.visitorHash, { method:"DELETE", headers:{...restHeaders(),"Prefer":"return=minimal"} });
+          if (!removed.ok) return reply({ error: "could not remove comment vote" }, 502, headers);
+          return reply({ success:true, myVote:0 }, 200, headers);
+        }
+        const saved = await fetch(base + "gallery_comment_votes?on_conflict=comment_id,visitor_hash", {
+          method:"POST", headers:{...restHeaders(),"Prefer":"resolution=merge-duplicates,return=minimal"},
+          body:JSON.stringify({comment_id:commentId,visitor_hash:visitor.visitorHash,vote,updated_at:new Date().toISOString()})
+        });
+        if (!saved.ok) return reply({ error: "could not save comment vote" }, 502, headers);
+        return reply({ success:true, myVote:vote }, 200, headers);
       }
       const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
       let visitor;
@@ -267,16 +330,11 @@ serve(async (req) => {
       const vote = Array.isArray(voteRows) && voteRows[0] ? Number(voteRows[0].vote) : 0;
       const inserted = await fetch(base + "gallery_comments", {
         method: "POST", headers: { ...restHeaders(), "Prefer": "return=representation" },
-        body: JSON.stringify({
-          image_id: imageId, visitor_hash: visitor.visitorHash,
-          display_name: displayName || null, body: content
-        })
+        body: JSON.stringify({ image_id:imageId, visitor_hash:visitor.visitorHash, display_name:displayName || null, body:content })
       });
       if (!inserted.ok) return reply({ error: "could not save comment" }, 502, headers);
       const rows = await inserted.json().catch(() => []);
-      return reply({ success: true, comment: {
-        ...(Array.isArray(rows) ? rows[0] : {}), display_name: displayName || "anonymous", vote
-      } }, 201, headers);
+      return reply({ success:true, comment:{ ...(Array.isArray(rows)?rows[0]:{}), display_name:displayName || "anonymous", vote } }, 201, headers);
     }
 
     if (body.action === "react") {
