@@ -579,12 +579,12 @@
     function renderBbcode(source, target) {
       const root = document.createDocumentFragment();
       const stack = [{tag:"root",node:root}];
-      const token = /\\[\\/?(?:b|i|u|s|quote|code|center|br)(?:=[^\\]]*)?\\]|\\[url=(?:https?:\\/\\/[^\\]]+)\\]|\\[color=[#a-zA-Z0-9(),.% -]{1,32}\\]|\\[size=(?:small|large|[1-3])\\]/gi;
+      const token = /\[\/?(?:b|i|u|s|quote|code|center|br)(?:=[^\]]*)?\]|\[url=https?:\/\/[^\]]+\]|\[color=[#a-zA-Z0-9(),.% -]{1,32}\]|\[size=(?:small|large|[1-3])\]/gi;
       let cursor = 0, match;
       const appendText = value => { if (value) stack[stack.length-1].node.append(document.createTextNode(value)); };
       while ((match = token.exec(source))) {
         appendText(source.slice(cursor,match.index)); cursor = token.lastIndex;
-        const raw = match[0], close = /^\\[\\//.test(raw), name = raw.slice(close?2:1).split(/[=\\]]/)[0].toLowerCase();
+        const raw = match[0], close = /^\[\/\//.test(raw), name = raw.slice(close?2:1).split(/[=\]]/)[0].toLowerCase();
         if (name === "br" && !close) { stack[stack.length-1].node.append(document.createElement("br")); continue; }
         if (close) {
           const index = stack.map(entry=>entry.tag).lastIndexOf(name);
@@ -614,15 +614,15 @@
       if(!value) return;
       const url=safeHttpUrl(value); if(!url) return;
       const wrap=document.createElement("div"); wrap.className="feed-embed";
-      const host=url.hostname.toLowerCase().replace(/^www\\./,"");
+      const host=url.hostname.toLowerCase().replace(/^www\./,"");
       let embed="";
       if(host==="youtu.be") {
-        const id=url.pathname.split("/").filter(Boolean)[0]; if(/^[\\w-]{6,20}$/.test(id||"")) embed="https://www.youtube-nocookie.com/embed/"+id;
+        const id=url.pathname.split("/").filter(Boolean)[0]; if(/^[\w-]{6,20}$/.test(id||"")) embed="https://www.youtube-nocookie.com/embed/"+id;
       } else if(["youtube.com","m.youtube.com"].includes(host)) {
-        const id=url.searchParams.get("v") || url.pathname.match(/^\\/(?:embed|shorts)\\/([\\w-]{6,20})/)?.[1];
-        if(id && /^[\\w-]{6,20}$/.test(id)) embed="https://www.youtube-nocookie.com/embed/"+id;
+        const id=url.searchParams.get("v") || url.pathname.match(/^\/(?:embed|shorts)\/([\w-]{6,20})/)?.[1];
+        if(id && /^[\w-]{6,20}$/.test(id)) embed="https://www.youtube-nocookie.com/embed/"+id;
       } else if(host==="vimeo.com" || host==="player.vimeo.com") {
-        const id=url.pathname.split("/").filter(Boolean).pop(); if(/^\\d{5,12}$/.test(id||"")) embed="https://player.vimeo.com/video/"+id;
+        const id=url.pathname.split("/").filter(Boolean).pop(); if(/^\d{5,12}$/.test(id||"")) embed="https://player.vimeo.com/video/"+id;
       }
       if(embed) {
         const frame=document.createElement("iframe"); frame.src=embed; frame.title="embedded video";
@@ -630,7 +630,7 @@
         frame.allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
         frame.allowFullscreen=true; frame.sandbox="allow-scripts allow-same-origin allow-presentation";
         wrap.append(frame);
-      } else if(/\\.(mp4|webm|ogv|ogg)(?:$|[?#])/i.test(url.href)) {
+      } else if(/\.(mp4|webm|ogv|ogg)(?:$|[?#])/i.test(url.href)) {
         const video=document.createElement("video"); video.controls=true; video.preload="metadata"; video.src=url.href; video.referrerPolicy="no-referrer"; wrap.append(video);
       } else {
         const link=document.createElement("a"); link.className="feed-embed-link"; link.href=url.href;
