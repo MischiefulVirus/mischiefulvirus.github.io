@@ -668,10 +668,11 @@
       finally { button.disabled=false; }
     });
     $("feed-refresh").addEventListener("click",loadFeed);
+    window.setInterval(loadFeed, FEED_REFRESH_MS);
 
     updateAdminControls();
     updateCooldownControls();
-    await loadGallery();
+    await Promise.all([loadGallery(), loadFeed()]);
     if (adminToken) await loadAdminQueue();
     supabase.channel("gallery-live").on("postgres_changes",{event:"*",schema:"public",table:"gallery_images"},loadGallery).subscribe();
   </script>
