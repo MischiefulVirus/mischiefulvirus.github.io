@@ -351,7 +351,7 @@
         if (isVideo(item.mime_type)) {
           preview = document.createElement("video"); preview.muted = true; preview.preload = "metadata";
           preview.src = mediaUrl(item.object_path); preview.playsInline = true;
-          preview.addEventListener("click", event => { event.preventDefault(); openItem(item); });
+          preview.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); openItem(item); });
         } else {
           preview = document.createElement("img"); preview.src = mediaUrl(item.object_path);
           preview.alt = item.original_name || "gallery image"; preview.loading = "lazy"; preview.decoding = "async";
