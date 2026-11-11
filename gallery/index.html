@@ -63,6 +63,38 @@
     #gallery-admin-queue { margin-top:1em; overflow-x:auto; }
     #gallery-admin-queue table { width:100%; border-collapse:collapse; font-size:.72em; }
     #gallery-admin-queue td, #gallery-admin-queue th { border:1px solid #400; padding:5px; text-align:left; }
+    /* community feed */
+    .layout { width:min(1400px,100%); grid-template:"header header header" auto "leftSidebar main rightSidebar" auto "footer footer footer" auto / 160px minmax(0,1fr) 310px; }
+    #gallery-section { min-width:0; }
+    .gallery-feed-sidebar { grid-area:rightSidebar; min-width:0; align-self:start; }
+    .feed-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid #600; padding-bottom:8px; margin-bottom:10px; }
+    .feed-heading h2 { margin:0; font-size:1.1em; }
+    #feed-refresh, #feed-composer button { color:#f00; background:#080000; border:1px solid #800; padding:.35em .6em; font:inherit; cursor:pointer; }
+    #feed-composer { border:1px solid #500; padding:9px; margin-bottom:12px; display:grid; gap:7px; }
+    #feed-composer input, #feed-composer textarea { box-sizing:border-box; width:100%; min-width:0; color:#f00; background:#080000; border:1px solid #600; padding:7px; font:inherit; }
+    #feed-composer textarea { min-height:100px; resize:vertical; }
+    #feed-composer .feed-help { color:#b66; font-size:.68em; line-height:1.5; margin:0; overflow-wrap:anywhere; }
+    #feed-status { min-height:1em; margin:0; color:#b66; font-size:.72em; overflow-wrap:anywhere; }
+    #feed-posts { display:grid; gap:10px; }
+    .feed-post { min-width:0; border:1px solid #500; padding:9px; overflow-wrap:anywhere; background:#050000; }
+    .feed-post-meta { color:#b66; font-size:.7em; margin-bottom:7px; }
+    .feed-post-body { font-size:.83em; line-height:1.5; overflow-wrap:anywhere; }
+    .feed-post-body p { margin:.45em 0; }
+    .feed-post-body blockquote { border-left:2px solid #900; margin:.5em 0; padding:.2em .6em; color:#c77; }
+    .feed-post-body pre { white-space:pre-wrap; background:#100000; border:1px solid #400; padding:6px; }
+    .feed-post-body a, .feed-embed-link { color:#f66; overflow-wrap:anywhere; }
+    .feed-post-body img { max-width:100%; }
+    .feed-embed { margin-top:8px; }
+    .feed-embed iframe { display:block; width:100%; aspect-ratio:16/9; border:1px solid #600; background:#000; }
+    .feed-embed video { width:100%; max-height:240px; background:#000; }
+    .feed-embed-link { display:block; border:1px solid #400; padding:7px; margin-top:8px; font-size:.75em; }
+    @media(max-width:1100px) and (min-width:801px) {
+      .layout { grid-template-columns:140px minmax(0,1fr) 270px; }
+    }
+    @media(max-width:800px) {
+      .layout { width:100%; grid-template:"header" auto "leftSidebar" auto "main" auto "rightSidebar" auto "footer" auto / 1fr; }
+      .gallery-feed-sidebar { display:block !important; grid-area:rightSidebar; margin-top:0; }
+    }
     @media(max-width:800px) { .gallery-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } }
   </style>
 </head>
@@ -127,6 +159,18 @@
         <div id="gallery-grid" class="gallery-grid" aria-live="polite"><p>loading submissions…</p></div>
       </section>
     </main>
+    <aside class="right-sidebar gallery-feed-sidebar" aria-label="community feed">
+      <div class="feed-heading"><h2>community feed</h2><button id="feed-refresh" type="button">refresh</button></div>
+      <form id="feed-composer">
+        <input id="feed-name" type="text" maxlength="24" placeholder="display name (optional)" aria-label="Display name">
+        <textarea id="feed-body" maxlength="4000" placeholder="what's happening? [b]bbcode[/b] works…" required aria-label="Post text"></textarea>
+        <input id="feed-embed-url" type="url" maxlength="1000" placeholder="optional video / link URL (external; not uploaded)" aria-label="External video or link URL">
+        <p class="feed-help">[b]bold[/b] [i]italic[/i] [u]underline[/u] [s]strike[/s] [quote]quote[/quote] [code]code[/code] [url=https://…]link[/url] [color=red]text[/color] [center]text[/center]</p>
+        <button id="feed-submit" type="submit">post</button>
+        <p id="feed-status" role="status" aria-live="polite"></p>
+      </form>
+      <div id="feed-posts" aria-live="polite"><p>loading feed…</p></div>
+    </aside>
     <footer></footer>
   </div>
 
@@ -524,6 +568,106 @@
         status.textContent = error.message?.includes("Failed to fetch") ? "that host blocks browser imports (CORS)." : (error.message || "could not import URL.");
       } finally { importButton.disabled = false; }
     });
+
+
+    // Community feed: posts are text + optional external URL; no media is uploaded here.
+    const FEED_REFRESH_MS = 30000;
+    function safeHttpUrl(value) {
+      try { const url = new URL(String(value || "").trim()); return ["http:","https:"].includes(url.protocol) ? url : null; }
+      catch { return null; }
+    }
+    function renderBbcode(source, target) {
+      const root = document.createDocumentFragment();
+      const stack = [{tag:"root",node:root}];
+      const token = /\\[\\/?(?:b|i|u|s|quote|code|center|br)(?:=[^\\]]*)?\\]|\\[url=(?:https?:\\/\\/[^\\]]+)\\]|\\[color=[#a-zA-Z0-9(),.% -]{1,32}\\]|\\[size=(?:small|large|[1-3])\\]/gi;
+      let cursor = 0, match;
+      const appendText = value => { if (value) stack[stack.length-1].node.append(document.createTextNode(value)); };
+      while ((match = token.exec(source))) {
+        appendText(source.slice(cursor,match.index)); cursor = token.lastIndex;
+        const raw = match[0], close = /^\\[\\//.test(raw), name = raw.slice(close?2:1).split(/[=\\]]/)[0].toLowerCase();
+        if (name === "br" && !close) { stack[stack.length-1].node.append(document.createElement("br")); continue; }
+        if (close) {
+          const index = stack.map(entry=>entry.tag).lastIndexOf(name);
+          if (index > 0) stack.length = index;
+          continue;
+        }
+        let element = null;
+        if (["b","i","u","s","quote","code","center"].includes(name)) {
+          element = document.createElement(({b:"strong",i:"em",u:"u",s:"s",quote:"blockquote",code:"code",center:"div"})[name]);
+          if(name==="center") element.style.textAlign="center";
+        } else if(name==="url") {
+          const href = raw.slice(5,-1), url = safeHttpUrl(href);
+          if(url) { element=document.createElement("a"); element.href=url.href; element.target="_blank"; element.rel="noopener noreferrer"; }
+        } else if(name==="color") {
+          const value=raw.slice(7,-1).trim();
+          if(/^(#[0-9a-f]{3,8}|[a-z]{1,20})$/i.test(value)) { element=document.createElement("span"); element.style.color=value; }
+        } else if(name==="size") {
+          const value=raw.slice(6,-1).trim(); element=document.createElement("span");
+          element.style.fontSize=({small:"0.85em",large:"1.2em","1":"0.9em","2":"1em","3":"1.15em"})[value] || "1em";
+        }
+        if(element) { stack[stack.length-1].node.append(element); stack.push({tag:name,node:element}); }
+        else appendText(raw);
+      }
+      appendText(source.slice(cursor)); target.replaceChildren(root);
+    }
+    function renderFeedEmbed(value, parent) {
+      if(!value) return;
+      const url=safeHttpUrl(value); if(!url) return;
+      const wrap=document.createElement("div"); wrap.className="feed-embed";
+      const host=url.hostname.toLowerCase().replace(/^www\\./,"");
+      let embed="";
+      if(host==="youtu.be") {
+        const id=url.pathname.split("/").filter(Boolean)[0]; if(/^[\\w-]{6,20}$/.test(id||"")) embed="https://www.youtube-nocookie.com/embed/"+id;
+      } else if(["youtube.com","m.youtube.com"].includes(host)) {
+        const id=url.searchParams.get("v") || url.pathname.match(/^\\/(?:embed|shorts)\\/([\\w-]{6,20})/)?.[1];
+        if(id && /^[\\w-]{6,20}$/.test(id)) embed="https://www.youtube-nocookie.com/embed/"+id;
+      } else if(host==="vimeo.com" || host==="player.vimeo.com") {
+        const id=url.pathname.split("/").filter(Boolean).pop(); if(/^\\d{5,12}$/.test(id||"")) embed="https://player.vimeo.com/video/"+id;
+      }
+      if(embed) {
+        const frame=document.createElement("iframe"); frame.src=embed; frame.title="embedded video";
+        frame.loading="lazy"; frame.referrerPolicy="strict-origin-when-cross-origin";
+        frame.allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+        frame.allowFullscreen=true; frame.sandbox="allow-scripts allow-same-origin allow-presentation";
+        wrap.append(frame);
+      } else if(/\\.(mp4|webm|ogv|ogg)(?:$|[?#])/i.test(url.href)) {
+        const video=document.createElement("video"); video.controls=true; video.preload="metadata"; video.src=url.href; video.referrerPolicy="no-referrer"; wrap.append(video);
+      } else {
+        const link=document.createElement("a"); link.className="feed-embed-link"; link.href=url.href;
+        link.target="_blank"; link.rel="noopener noreferrer"; link.textContent="↗ "+url.href; wrap.append(link);
+      }
+      parent.append(wrap);
+    }
+    async function loadFeed() {
+      const list=$("feed-posts");
+      try {
+        const result=await api({action:"feed-list"});
+        list.replaceChildren();
+        if(!result.posts?.length) { addText(list,"p","no posts yet. be the first."); return; }
+        for(const post of result.posts) {
+          const article=document.createElement("article"); article.className="feed-post";
+          const meta=addText(article,"div",(post.display_name || "anonymous")+" · "+new Date(post.created_at).toLocaleString(),"feed-post-meta");
+          const body=document.createElement("div"); body.className="feed-post-body"; renderBbcode(post.body,body); article.append(body);
+          renderFeedEmbed(post.embed_url,article);
+          list.append(article);
+        }
+      } catch(error) { list.textContent=error.message || "could not load feed."; }
+    }
+    $("feed-composer").addEventListener("submit",async event=>{
+      event.preventDefault();
+      const button=$("feed-submit"), message=$("feed-status");
+      const body=$("feed-body").value.trim(), embedUrl=$("feed-embed-url").value.trim();
+      if(!body) { message.textContent="write something first."; return; }
+      if(embedUrl && !safeHttpUrl(embedUrl)) { message.textContent="embed URL must be a valid HTTP or HTTPS link."; return; }
+      button.disabled=true; message.textContent="posting…";
+      try {
+        await api({action:"feed-create",visitor_id:visitorId,display_name:$("feed-name").value,body,embed_url:embedUrl});
+        $("feed-body").value=""; $("feed-embed-url").value="";
+        message.textContent="posted."; await loadFeed();
+      } catch(error) { message.textContent=error.message || "could not publish post."; }
+      finally { button.disabled=false; }
+    });
+    $("feed-refresh").addEventListener("click",loadFeed);
 
     updateAdminControls();
     updateCooldownControls();
