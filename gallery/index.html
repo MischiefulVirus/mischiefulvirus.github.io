@@ -176,6 +176,17 @@
       return SUPABASE_URL + "/storage/v1/object/public/gallery/" + path.split("/").map(encodeURIComponent).join("/");
     }
     function isVideo(mime) { return String(mime || "").startsWith("video/"); }
+    async function recordView(item) {
+      try {
+        const result = await api({ action:"view", image_id:item.id, visitor_id:visitorId });
+        const stats = statsById.get(item.id) || {upvotes:0,downvotes:0,sobs:0,score:0};
+        stats.views = result.views; statsById.set(item.id,stats);
+        const viewLabel = document.querySelector('[data-view-count="' + item.id + '"]');
+        if (viewLabel) viewLabel.textContent = result.views + " views";
+        const caption = $("gallery-viewer-caption");
+        if (activeCommentImageId === item.id) caption.textContent = caption.textContent.replace(/ · \d+ views$/, "") + " · " + result.views + " views";
+      } catch(error) { console.warn("could not record gallery view",error); }
+    }
     function openItem(item, updateUrl = true) {
       if (!item) return;
       closeMedia();
@@ -191,6 +202,7 @@
       activeCommentImageId = item.id;
       if (!viewer.open) viewer.showModal();
       loadComments(item.id);
+      recordView(item);
       if (updateUrl) {
         const next = new URL(location.href); next.searchParams.set("image", item.id);
         history.pushState({ galleryImage:item.id }, "", next);
@@ -316,7 +328,7 @@
     async function loadGallery() {
       const [imagesResult, statsResult] = await Promise.all([
         supabase.from("gallery_images").select("id,object_path,original_name,mime_type,size_bytes,created_at,uploader_name,is_anonymous").order("created_at",{ascending:false}).limit(100),
-        supabase.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs")
+        supabase.from("gallery_image_stats").select("image_id,upvotes,downvotes,score,sobs,views")
       ]);
       if (imagesResult.error) { grid.textContent = "could not load gallery."; console.error(imagesResult.error); return; }
       galleryItems = imagesResult.data || [];
@@ -361,6 +373,8 @@
         const commentCount = document.createElement("span"); commentCount.className = "gallery-comment-count";
         commentCount.textContent = (Number(commentCounts.get(item.id)) || 0) + " comments";
         reactions.append(commentCount);
+        const viewCount = addText(figure,"div",(Number(stats.views) || 0) + " views","gallery-comment-count");
+        viewCount.dataset.viewCount = item.id;
         figure.append(reactions);
         if (adminToken) {
           const del = document.createElement("button"); del.type = "button"; del.textContent = "delete";
