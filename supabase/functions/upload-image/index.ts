@@ -277,6 +277,29 @@ serve(async (req) => {
       return reply({ success:true, counts }, 200, headers);
     }
 
+    if (body.action === "view") {
+      const imageId = typeof body.image_id === "string" ? body.image_id : "";
+      const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+      if (!validImageId(imageId)) return reply({ error: "invalid image id" }, 400, headers);
+      let visitor;
+      try { visitor = await ensureVisitor(visitorId); }
+      catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+      const base = SUPABASE_URL + "/rest/v1/";
+      const target = await fetch(base + "gallery_images?id=eq." + imageId + "&select=id", { headers: restHeaders() });
+      if (!target.ok) return reply({ error: "could not verify gallery item" }, 502, headers);
+      const targetRows = await target.json().catch(() => []);
+      if (!Array.isArray(targetRows) || !targetRows.length) return reply({ error: "gallery item not found" }, 404, headers);
+      const inserted = await fetch(base + "gallery_views", {
+        method: "POST", headers: { ...restHeaders(), "Prefer": "return=minimal" },
+        body: JSON.stringify({ image_id: imageId, visitor_hash: visitor.visitorHash })
+      });
+      if (!inserted.ok) return reply({ error: "could not record view" }, 502, headers);
+      const counted = await fetch(base + "gallery_views?image_id=eq." + imageId + "&select=id", { headers: restHeaders() });
+      if (!counted.ok) return reply({ error: "view was recorded, but its count could not be loaded" }, 502, headers);
+      const rows = await counted.json().catch(() => []);
+      return reply({ success: true, views: Array.isArray(rows) ? rows.length : 0 }, 200, headers);
+    }
+
     if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
       const imageId = typeof body.image_id === "string" ? body.image_id : "";
       if (!(await validImageId(imageId))) return reply({ error: "invalid image id" }, 400, headers);
