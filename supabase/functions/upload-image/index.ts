@@ -259,6 +259,54 @@ serve(async (req) => {
       return reply({ success: true, images: adminImages }, 200, headers);
     }
 
+    if (body.action === "feed-list") {
+      const response = await fetch(SUPABASE_URL + "/rest/v1/gallery_feed_posts?select=id,display_name,body,embed_url,created_at&order=created_at.desc&limit=100", { headers: restHeaders() });
+      if (!response.ok) return reply({ error: "could not load community feed" }, 502, headers);
+      const posts = await response.json().catch(() => []);
+      return reply({ success: true, posts: Array.isArray(posts) ? posts : [] }, 200, headers);
+    }
+
+    if (body.action === "feed-create") {
+      const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
+      let visitor;
+      try { visitor = await ensureVisitor(visitorId); }
+      catch (error) { return reply({ error: error instanceof Error ? error.message : "visitor identity failed" }, 400, headers); }
+      const content = typeof body.body === "string" ? body.body.trim() : "";
+      if (!content || content.length > 4000) return reply({ error: "posts must be between 1 and 4000 characters" }, 400, headers);
+      const requestedName = typeof body.display_name === "string" ? body.display_name.trim() : "";
+      const displayName = requestedName.replace(/[<>\\r\\n\\t]/g, "").replace(/\\s+/g, " ").slice(0, 24) || visitor.displayName;
+      if (requestedName && !displayName) return reply({ error: "enter a valid display name" }, 400, headers);
+      const rawEmbed = typeof body.embed_url === "string" ? body.embed_url.trim() : "";
+      let embedUrl: string | null = null;
+      if (rawEmbed) {
+        if (rawEmbed.length > 1000) return reply({ error: "embed URL is too long" }, 400, headers);
+        try {
+          const parsed = new URL(rawEmbed);
+          if (!["http:", "https:"].includes(parsed.protocol)) return reply({ error: "only HTTP and HTTPS links are accepted" }, 400, headers);
+          embedUrl = parsed.href;
+        } catch { return reply({ error: "enter a valid external URL" }, 400, headers); }
+      }
+      const recent = await fetch(SUPABASE_URL + "/rest/v1/gallery_feed_posts?visitor_hash=eq." + visitor.visitorHash +
+        "&select=created_at&order=created_at.desc&limit=1", { headers: restHeaders() });
+      if (!recent.ok) return reply({ error: "could not check post cooldown" }, 502, headers);
+      const recentRows = await recent.json().catch(() => []);
+      if (Array.isArray(recentRows) && recentRows[0]?.created_at &&
+          Date.now() - new Date(recentRows[0].created_at).getTime() < 30000) {
+        return reply({ error: "please wait 30 seconds before posting again" }, 429, headers);
+      }
+      const inserted = await fetch(SUPABASE_URL + "/rest/v1/gallery_feed_posts", {
+        method: "POST", headers: { ...restHeaders(), "Prefer": "return=representation" },
+        body: JSON.stringify({ visitor_hash: visitor.visitorHash, display_name: displayName, body: content, embed_url: embedUrl })
+      });
+      if (!inserted.ok) {
+        const detail = await inserted.text().catch(() => "");
+        console.error("gallery feed insert failed:", detail.slice(0, 200));
+        return reply({ error: "could not publish post" }, 502, headers);
+      }
+      const rows = await inserted.json().catch(() => []);
+      return reply({ success: true, post: Array.isArray(rows) ? rows[0] : null }, 201, headers);
+    }
+
     if (body.action === "comment-counts") {
       const imageIds = Array.isArray(body.image_ids) ? body.image_ids.filter((id: unknown) =>
         typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
