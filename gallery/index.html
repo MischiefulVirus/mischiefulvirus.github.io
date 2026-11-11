@@ -584,7 +584,7 @@
       const appendText = value => { if (value) stack[stack.length-1].node.append(document.createTextNode(value)); };
       while ((match = token.exec(source))) {
         appendText(source.slice(cursor,match.index)); cursor = token.lastIndex;
-        const raw = match[0], close = /^\[\/\//.test(raw), name = raw.slice(close?2:1).split(/[=\]]/)[0].toLowerCase();
+        const raw = match[0], close = raw.startsWith("[/"), name = raw.slice(close?2:1).split(/[=\]]/)[0].toLowerCase();
         if (name === "br" && !close) { stack[stack.length-1].node.append(document.createElement("br")); continue; }
         if (close) {
           const index = stack.map(entry=>entry.tag).lastIndexOf(name);
