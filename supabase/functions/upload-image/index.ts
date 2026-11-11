@@ -294,10 +294,13 @@ serve(async (req) => {
         body: JSON.stringify({ image_id: imageId, visitor_hash: visitor.visitorHash })
       });
       if (!inserted.ok) return reply({ error: "could not record view" }, 502, headers);
-      const counted = await fetch(base + "gallery_views?image_id=eq." + imageId + "&select=id", { headers: restHeaders() });
+      const counted = await fetch(base + "gallery_views?image_id=eq." + imageId + "&select=id&limit=1", {
+        headers: { ...restHeaders(), "Prefer": "count=exact", "Range": "0-0" }
+      });
       if (!counted.ok) return reply({ error: "view was recorded, but its count could not be loaded" }, 502, headers);
-      const rows = await counted.json().catch(() => []);
-      return reply({ success: true, views: Array.isArray(rows) ? rows.length : 0 }, 200, headers);
+      const contentRange = counted.headers.get("content-range") || "";
+      const total = Number(contentRange.split("/")[1]);
+      return reply({ success: true, views: Number.isFinite(total) ? total : 0 }, 200, headers);
     }
 
     if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
