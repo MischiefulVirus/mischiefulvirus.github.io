@@ -14,7 +14,7 @@ revoke all on public.gallery_views from anon, authenticated;
 grant all on public.gallery_views to service_role;
 
 create or replace view public.gallery_image_stats
-with (security_invoker = true)
+with (security_invoker = false)
 as
 select
   i.id as image_id,
