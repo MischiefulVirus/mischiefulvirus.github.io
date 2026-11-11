@@ -571,19 +571,32 @@ serve(async (req) => {
     const galleryLink = "https://01.nya.je/gallery/" + (imageId ? "?image=" + encodeURIComponent(imageId) : "");
     const publicMediaUrl = SUPABASE_URL + "/storage/v1/object/public/gallery/" +
       objectPath.split("/").map(encodeURIComponent).join("/");
-    fetch(DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: "new gallery submission • [view in gallery](" + galleryLink + ")",
-        embeds: [{
-          title: "new gallery submission",
-          url: galleryLink,
-          description: originalName + " • " + mime + " • " + file.size + " bytes • by " + (anonymousUpload ? "anonymous" : visitor.displayName),
-          ...(mime.startsWith("image/") ? { image: { url: publicMediaUrl } } : { thumbnail: { url: "https://01.nya.je/favicon.ico" } })
-        }]
-      })
-    }).catch(() => {});
+    const webhookPayload = {
+      content: "new gallery submission • [view in gallery](" + galleryLink + ")",
+      embeds: [{
+        title: "new gallery submission",
+        url: galleryLink,
+        description: originalName + " • " + mime + " • " + file.size + " bytes • by " + (anonymousUpload ? "anonymous" : visitor.displayName),
+        ...(mime.startsWith("image/") ? { image: { url: publicMediaUrl } } :
+          mime.startsWith("video/") ? {} : { thumbnail: { url: "https://01.nya.je/favicon.ico" } })
+      }]
+    };
+
+    if (mime.startsWith("video/")) {
+      const form = new FormData();
+      form.append("payload_json", JSON.stringify(webhookPayload));
+      form.append("files[0]", new Blob([bytes], { type: mime }), originalName);
+      fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        body: form
+      }).catch((error) => console.error("Discord video webhook failed:", error));
+    } else {
+      fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookPayload)
+      }).catch((error) => console.error("Discord image webhook failed:", error));
+    }
   }
   return reply({ success: true, id: imageId, object_path: objectPath, uploader_name: visitor.displayName }, 201, headers);
 });
