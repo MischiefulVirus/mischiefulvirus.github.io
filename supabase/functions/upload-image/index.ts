@@ -274,7 +274,7 @@ serve(async (req) => {
       const content = typeof body.body === "string" ? body.body.trim() : "";
       if (!content || content.length > 4000) return reply({ error: "posts must be between 1 and 4000 characters" }, 400, headers);
       const requestedName = typeof body.display_name === "string" ? body.display_name.trim() : "";
-      const displayName = requestedName.replace(/[<>\\r\\n\\t]/g, "").replace(/\\s+/g, " ").slice(0, 24) || visitor.displayName;
+      const displayName = requestedName.replace(/[<>\r\n\t]/g, "").replace(/\s+/g, " ").slice(0, 24) || visitor.displayName;
       if (requestedName && !displayName) return reply({ error: "enter a valid display name" }, 400, headers);
       const rawEmbed = typeof body.embed_url === "string" ? body.embed_url.trim() : "";
       let embedUrl: string | null = null;
