@@ -413,6 +413,32 @@ serve(async (req) => {
       });
       if (!inserted.ok) return reply({ error: "could not save comment" }, 502, headers);
       const rows = await inserted.json().catch(() => []);
+
+      // Notify Discord only after the comment has been saved successfully.
+      // A webhook outage must never undo or block a successful gallery comment.
+      if (DISCORD_WEBHOOK_URL) {
+        const galleryLink = "https://01.nya.je/gallery/?image=" + encodeURIComponent(imageId);
+        const commenter = displayName || "anonymous";
+        const commentWebhook = {
+          content: "new gallery comment • [view in gallery](" + galleryLink + ")\\n**by:** " +
+            commenter + "\\n> " + content,
+          allowed_mentions: { parse: [] }
+        };
+        try {
+          const sent = await fetch(DISCORD_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(commentWebhook)
+          });
+          if (!sent.ok) {
+            console.error("Discord gallery comment webhook failed:", sent.status,
+              (await sent.text().catch(() => "")).slice(0, 200));
+          }
+        } catch (error) {
+          console.error("Discord gallery comment webhook failed:", error);
+        }
+      }
+
       return reply({ success:true, comment:{ ...(Array.isArray(rows)?rows[0]:{}), display_name:displayName || "anonymous", vote } }, 201, headers);
     }
 
