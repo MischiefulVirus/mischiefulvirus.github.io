@@ -2,6 +2,12 @@ name: Deploy upload-image
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'supabase/functions/upload-image/**'
+      - '.github/workflows/deploy-upload-image.yml'
 
 permissions:
   contents: read
