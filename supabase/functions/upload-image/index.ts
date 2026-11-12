@@ -266,6 +266,23 @@ serve(async (req) => {
       return reply({ success: true, posts: Array.isArray(posts) ? posts : [] }, 200, headers);
     }
 
+    if (body.action === "feed-delete") {
+      if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
+        return reply({ error: "admin session expired; log in again" }, 401, headers);
+      }
+      const id = typeof body.id === "string" ? body.id : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+        return reply({ error: "invalid feed post id" }, 400, headers);
+      }
+      const removed = await fetch(SUPABASE_URL + "/rest/v1/gallery_feed_posts?id=eq." + encodeURIComponent(id), {
+        method: "DELETE", headers: { ...restHeaders(), "Prefer": "return=representation" }
+      });
+      if (!removed.ok) return reply({ error: "could not delete feed post" }, 502, headers);
+      const rows = await removed.json().catch(() => []);
+      if (!Array.isArray(rows) || !rows.length) return reply({ error: "feed post not found" }, 404, headers);
+      return reply({ success: true }, 200, headers);
+    }
+
     if (body.action === "feed-create") {
       const visitorId = typeof body.visitor_id === "string" ? body.visitor_id : "";
       let visitor;
@@ -349,6 +366,29 @@ serve(async (req) => {
       const contentRange = counted.headers.get("content-range") || "";
       const total = Number(contentRange.split("/")[1]);
       return reply({ success: true, views: Number.isFinite(total) ? total : 0 }, 200, headers);
+    }
+
+    if (body.action === "comment-delete") {
+      if (!ADMIN_SESSION_SECRET || typeof body.token !== "string" || !(await validAdminToken(body.token))) {
+        return reply({ error: "admin session expired; log in again" }, 401, headers);
+      }
+      const imageId = typeof body.image_id === "string" ? body.image_id : "";
+      const commentId = typeof body.comment_id === "string" ? body.comment_id : "";
+      if (!validImageId(imageId) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commentId)) {
+        return reply({ error: "invalid comment deletion request" }, 400, headers);
+      }
+      const base = SUPABASE_URL + "/rest/v1/";
+      const target = await fetch(base + "gallery_comments?id=eq." + encodeURIComponent(commentId) +
+        "&image_id=eq." + encodeURIComponent(imageId) + "&select=id", { headers: restHeaders() });
+      if (!target.ok) return reply({ error: "could not verify comment" }, 502, headers);
+      const rows = await target.json().catch(() => []);
+      if (!Array.isArray(rows) || !rows.length) return reply({ error: "comment not found" }, 404, headers);
+      const removed = await fetch(base + "gallery_comments?id=eq." + encodeURIComponent(commentId) +
+        "&image_id=eq." + encodeURIComponent(imageId), {
+          method: "DELETE", headers: { ...restHeaders(), "Prefer": "return=minimal" }
+        });
+      if (!removed.ok) return reply({ error: "could not delete comment" }, 502, headers);
+      return reply({ success: true }, 200, headers);
     }
 
     if (body.action === "comments-list" || body.action === "comment-create" || body.action === "comment-react") {
