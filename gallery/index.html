@@ -326,6 +326,23 @@
             reactions.append(button);
           }
           article.append(reactions);
+          if (adminToken) {
+            const actions = document.createElement("div"); actions.className = "gallery-comment-reactions";
+            const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "delete comment";
+            remove.addEventListener("click", async () => {
+              if (!confirm("delete this comment?")) return;
+              remove.disabled = true;
+              try {
+                await adminApi({action:"comment-delete",image_id:imageId,comment_id:comment.id});
+                $("gallery-comment-status").textContent = "comment deleted.";
+                await loadComments(imageId);
+              } catch(error) {
+                $("gallery-comment-status").textContent = error.message || "could not delete comment.";
+                remove.disabled = false;
+              }
+            });
+            actions.append(remove); article.append(actions);
+          }
           list.append(article);
         }
       } catch(error) { list.textContent = error.message || "could not load comments."; }
@@ -490,7 +507,7 @@
     });
     $("gallery-admin-logout-button").addEventListener("click",() => {
       adminToken = ""; sessionStorage.removeItem("galleryAdminToken");
-      adminStatus.textContent = "logged out."; updateAdminControls(); loadGallery();
+      adminStatus.textContent = "logged out."; updateAdminControls(); loadGallery(); loadFeed();
     });
     $("gallery-admin-login-form").addEventListener("submit",async event => {
       event.preventDefault(); adminStatus.textContent = "logging in…";
@@ -498,7 +515,7 @@
         const result = await api({action:"login",password:$("gallery-admin-password").value});
         adminToken = result.token; sessionStorage.setItem("galleryAdminToken",adminToken);
         $("gallery-admin-password").value = ""; updateAdminControls();
-        adminStatus.textContent = "logged in."; await loadGallery(); await loadAdminQueue();
+        adminStatus.textContent = "logged in."; await loadGallery(); await loadAdminQueue(); await loadFeed();
       } catch(error) { adminStatus.textContent = error.message || "login failed."; }
     });
     $("gallery-webhook-form").addEventListener("submit",async event => {
@@ -649,6 +666,23 @@
           const meta=addText(article,"div",(post.display_name || "anonymous")+" · "+new Date(post.created_at).toLocaleString(),"feed-post-meta");
           const body=document.createElement("div"); body.className="feed-post-body"; renderBbcode(post.body,body); article.append(body);
           renderFeedEmbed(post.embed_url,article);
+          if (adminToken) {
+            const actions = document.createElement("div"); actions.className = "gallery-comment-reactions";
+            const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "delete post";
+            remove.addEventListener("click", async () => {
+              if (!confirm("delete this feed post?")) return;
+              remove.disabled = true;
+              try {
+                await adminApi({action:"feed-delete",id:post.id});
+                $("feed-status").textContent = "post deleted.";
+                await loadFeed();
+              } catch(error) {
+                $("feed-status").textContent = error.message || "could not delete post.";
+                remove.disabled = false;
+              }
+            });
+            actions.append(remove); article.append(actions);
+          }
           list.append(article);
         }
       } catch(error) { list.textContent=error.message || "could not load feed."; }
